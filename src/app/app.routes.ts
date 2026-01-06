@@ -34,6 +34,69 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
     canActivate: [AuthGuard]
   },
+  // Teacher routes
+  {
+    path: 'teacher',
+    canActivate: [AuthGuard],
+    children: [
+      {
+        path: '',
+        redirectTo: 'dashboard',
+        pathMatch: 'full'
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./pages/teacher-dashboard/teacher-dashboard.component').then(m => m.TeacherDashboardComponent)
+      },
+      {
+        path: 'courses/create',
+        loadComponent: () => import('./pages/teacher-course-form/teacher-course-form.component').then(m => m.TeacherCourseFormComponent)
+      },
+      {
+        path: 'courses/:id',
+        loadComponent: () => import('./pages/teacher-course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)
+      },
+      {
+        path: 'courses/:id/edit',
+        loadComponent: () => import('./pages/teacher-course-form/teacher-course-form.component').then(m => m.TeacherCourseFormComponent)
+      },
+      {
+        path: 'courses/:courseId/sections/:sectionId',
+        loadComponent: () => import('./pages/teacher-section-detail/teacher-section-detail.component').then(m => m.TeacherSectionDetailComponent)
+      },
+      {
+        path: 'courses/:courseId/sections/:sectionId/modules/:moduleId',
+        loadComponent: () => import('./pages/teacher-module-detail/teacher-module-detail.component').then(m => m.TeacherModuleDetailComponent)
+      }
+    ]
+  },
+  // Student routes
+  {
+    path: 'student',
+    canActivate: [AuthGuard],
+    children: [
+      {
+        path: 'registration',
+        loadComponent: () => import('./pages/course-registration/course-registration.component').then(m => m.CourseRegistrationComponent)
+      },
+      {
+        path: 'courses/:id',
+        loadComponent: () => import('./pages/student-course-detail/student-course-detail.component').then(m => m.StudentCourseDetailComponent)
+      },
+      {
+        path: 'courses/:courseId/sections/:sectionId',
+        loadComponent: () => import('./pages/student-section-detail/student-section-detail.component').then(m => m.StudentSectionDetailComponent)
+      },
+      {
+        path: 'courses/:courseId/sections/:sectionId/modules/:moduleId',
+        loadComponent: () => import('./pages/student-module-detail/student-module-detail.component').then(m => m.StudentModuleDetailComponent)
+      },
+      {
+        path: 'courses/:courseId/sections/:sectionId/modules/:moduleId/quiz',
+        loadComponent: () => import('./pages/student-quiz/student-quiz.component').then(m => m.StudentQuizComponent)
+      }
+    ]
+  },
   {
     path: '**',
     redirectTo: 'dashboard'

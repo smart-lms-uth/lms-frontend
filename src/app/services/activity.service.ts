@@ -1,12 +1,12 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, NavigationEnd } from '@angular/router';
-import { filter, Subscription } from 'rxjs';
+import { filter, Subscription, Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 
 export type ActivityType = 
-  | 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'PASSWORD_RESET'
+  | 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'PASSWORD_RESET' | 'PASSWORD_SET' | 'PASSWORD_CHANGE'
   | 'PAGE_VIEW' | 'PAGE_LEAVE'
   | 'BUTTON_CLICK' | 'LINK_CLICK' | 'FORM_SUBMIT' | 'FORM_ERROR'
   | 'API_REQUEST' | 'API_ERROR'
@@ -45,6 +45,45 @@ export interface ActivityData {
   timestamp?: string;
 }
 
+export interface ActivityResponseItem {
+  id: string;
+  userId: number;
+  sessionId: string;
+  activityType: string;
+  action: string;
+  pageUrl: string;
+  pageTitle: string;
+  metadata: string;
+  timestamp: string;
+  durationMs: number;
+  ipAddress: string;
+  userAgent: string;
+}
+
+export interface ActivityStats {
+  totalActivities: number;
+  uniqueUsers: number;
+  uniqueSessions: number;
+  avgSessionDurationMinutes: number;
+  activityByType: { [key: string]: number };
+  topPages: { [key: string]: number };
+  hourlyDistribution: { [key: number]: number };
+}
+
+export interface PagedResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -81,6 +120,35 @@ export class ActivityService implements OnDestroy {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+  }
+
+  // ========== API METHODS TO GET ACTIVITIES ==========
+
+  /**
+   * Get current user's activities
+   */
+  getMyActivities(page: number = 0, size: number = 20): Observable<ApiResponse<PagedResponse<ActivityResponseItem>>> {
+    return this.http.get<ApiResponse<PagedResponse<ActivityResponseItem>>>(
+      `${this.API_URL}/activities/me?page=${page}&size=${size}`
+    );
+  }
+
+  /**
+   * Get session activities
+   */
+  getSessionActivities(sessionId: string): Observable<ApiResponse<ActivityResponseItem[]>> {
+    return this.http.get<ApiResponse<ActivityResponseItem[]>>(
+      `${this.API_URL}/activities/session/${sessionId}`
+    );
+  }
+
+  /**
+   * Get activity statistics (admin only)
+   */
+  getStats(start: string, end: string): Observable<ApiResponse<ActivityStats>> {
+    return this.http.get<ApiResponse<ActivityStats>>(
+      `${this.API_URL}/activities/stats?start=${start}&end=${end}`
+    );
   }
 
   /**

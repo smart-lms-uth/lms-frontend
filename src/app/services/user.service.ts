@@ -34,6 +34,16 @@ export interface UpdateProfileRequest {
 
 export interface ProfileStatus {
   profileComplete: boolean;
+  hasPassword: boolean;
+}
+
+export interface SetPasswordRequest {
+  password: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 @Injectable({
@@ -58,5 +68,13 @@ export class UserService {
 
   getProfileStatus(): Observable<ApiResponse<ProfileStatus>> {
     return this.http.get<ApiResponse<ProfileStatus>>(`${this.API_URL}/users/profile/status`);
+  }
+
+  setPassword(request: SetPasswordRequest): Observable<ApiResponse<string>> {
+    return this.http.post<ApiResponse<string>>(`${this.API_URL}/users/profile/set-password`, request);
+  }
+
+  changePassword(request: ChangePasswordRequest): Observable<ApiResponse<string>> {
+    return this.http.post<ApiResponse<string>>(`${this.API_URL}/users/profile/change-password`, request);
   }
 }

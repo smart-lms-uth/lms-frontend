@@ -1,16 +1,17 @@
-/* Global styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+// ============================================
+// 🎨 LMS SMART SYSTEM - Modern Clean Outline
+// ============================================
+// Main entry point for all styles
 
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+// Design System (all @use must come first)
+@use 'styles/variables' as vars;
+@use 'styles/mixins' as mixins;
+@use 'styles/global';
 
+// Google Fonts loaded via index.html link tag instead of @import
+// to avoid SCSS @use/@import order conflicts
+
+// Base
 html, body {
   height: 100%;
   width: 100%;

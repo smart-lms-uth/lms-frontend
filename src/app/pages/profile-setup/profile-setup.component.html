@@ -1,0 +1,134 @@
+<div class="setup-container">
+  <div class="setup-card">
+    <!-- Header -->
+    <div class="setup-header">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+        </svg>
+      </div>
+      <div class="avatar-section">
+        <app-avatar
+          [src]="avatarUrl()"
+          [name]="fullName() || 'User'"
+          size="xl">
+        </app-avatar>
+      </div>
+      <h1>Chào mừng, {{ fullName() || 'bạn' }}!</h1>
+      <p class="subtitle">Hoàn thiện hồ sơ của bạn để bắt đầu trải nghiệm</p>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="progress-steps">
+      <div class="step active">
+        <div class="step-number">1</div>
+        <span>Đăng nhập</span>
+      </div>
+      <div class="step-line active"></div>
+      <div class="step active">
+        <div class="step-number">2</div>
+        <span>Thông tin</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <span>Hoàn thành</span>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="setup-form">
+      <div class="form-grid">
+        <div class="form-group form-group--full">
+          <label class="form-label">
+            Họ và tên
+            <span class="required">*</span>
+          </label>
+          <input 
+            type="text" 
+            class="form-input"
+            formControlName="fullName"
+            placeholder="Nhập họ và tên đầy đủ">
+          <span class="error-text" *ngIf="profileForm.get('fullName')?.touched && profileForm.get('fullName')?.errors?.['required']">
+            Vui lòng nhập họ và tên
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Số điện thoại</label>
+          <input 
+            type="tel" 
+            class="form-input"
+            formControlName="phoneNumber"
+            placeholder="Nhập số điện thoại">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ngày sinh</label>
+          <input 
+            type="date" 
+            class="form-input"
+            formControlName="dateOfBirth">
+        </div>
+
+        <div class="form-group form-group--full">
+          <label class="form-label">Địa chỉ</label>
+          <input 
+            type="text" 
+            class="form-input"
+            formControlName="address"
+            placeholder="Nhập địa chỉ">
+        </div>
+
+        <div class="form-group form-group--full">
+          <label class="form-label">Giới thiệu bản thân</label>
+          <textarea 
+            class="form-input form-textarea"
+            formControlName="bio"
+            rows="3"
+            placeholder="Viết vài dòng giới thiệu về bản thân..."></textarea>
+        </div>
+      </div>
+
+      <!-- Error Message -->
+      <div class="message message--error" *ngIf="errorMessage()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        {{ errorMessage() }}
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <button 
+          type="button" 
+          class="btn btn--danger-outline"
+          (click)="logout()">
+          Đăng xuất
+        </button>
+        <div class="actions-right">
+          <button 
+            type="button" 
+            class="btn btn--outline"
+            (click)="skipSetup()">
+            Bỏ qua
+          </button>
+          <button 
+            type="submit" 
+            class="btn btn--primary"
+            [disabled]="!profileForm.valid || isSubmitting()">
+            <svg *ngIf="isSubmitting()" class="btn-spinner" width="16" height="16" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+            {{ isSubmitting() ? 'Đang lưu...' : 'Hoàn thành' }}
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

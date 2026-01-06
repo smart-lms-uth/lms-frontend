@@ -1,0 +1,387 @@
+<app-main-layout>
+  <div class="quiz-page">
+    <!-- Breadcrumb -->
+    <app-breadcrumb [items]="breadcrumbItems()"></app-breadcrumb>
+
+    <!-- Loading -->
+    <div *ngIf="loading()" class="loading-container">
+      <div class="spinner"></div>
+      <p>Đang tải...</p>
+    </div>
+
+    <!-- Quiz Intro -->
+    <div *ngIf="!loading() && quizState() === 'intro'" class="quiz-intro">
+      <app-card variant="default" class="intro-card">
+        <div class="intro-header">
+          <div class="intro-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </div>
+          <div class="intro-title">
+            <h1>{{ module()?.title }}</h1>
+            <p class="intro-subtitle">Bài kiểm tra trắc nghiệm</p>
+          </div>
+        </div>
+
+        <div class="intro-info">
+          <div class="info-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>Thời gian: <strong>{{ module()?.duration || 30 }} phút</strong></span>
+          </div>
+          <div class="info-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Số lần làm bài: <strong>Không giới hạn</strong></span>
+          </div>
+          <div class="info-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20V10"></path>
+              <path d="M18 20V4"></path>
+              <path d="M6 20v-4"></path>
+            </svg>
+            <span>Điểm đạt: <strong>{{ passingScore() }}%</strong></span>
+          </div>
+        </div>
+
+        <div class="intro-description" *ngIf="module()?.description">
+          <h3>Mô tả</h3>
+          <p>{{ module()?.description }}</p>
+        </div>
+
+        <div class="intro-rules">
+          <h3>Lưu ý</h3>
+          <ul>
+            <li>Sau khi bắt đầu, thời gian sẽ được tính ngay lập tức</li>
+            <li>Các câu trả lời sẽ được lưu tự động</li>
+            <li>Khi hết thời gian, bài làm sẽ được nộp tự động</li>
+            <li>Không được thoát khỏi trang khi đang làm bài</li>
+          </ul>
+        </div>
+
+        <div class="intro-actions">
+          <button 
+            class="btn btn--primary btn--lg"
+            (click)="startQuiz()"
+            [disabled]="starting()">
+            <span *ngIf="!starting()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Bắt đầu làm bài
+            </span>
+            <span *ngIf="starting()" class="loading-text">
+              <div class="spinner-sm"></div>
+              Đang chuẩn bị...
+            </span>
+          </button>
+          <button class="btn btn--outline" (click)="goBack()">
+            Quay lại
+          </button>
+        </div>
+      </app-card>
+
+      <!-- Submission History -->
+      <div class="history-section" *ngIf="submissions().length > 0">
+        <h2>Lịch sử làm bài</h2>
+        <div class="history-list">
+          <div 
+            *ngFor="let submission of submissions()" 
+            class="history-item"
+            (click)="viewResult(submission.id)">
+            <div class="history-attempt">
+              Lần {{ submission.attemptNumber }}
+            </div>
+            <div class="history-info">
+              <div class="history-score" [class]="getScoreClass(submission.percentage)">
+                {{ submission.score }}/{{ submission.maxScore }} ({{ submission.percentage | number:'1.0-1' }}%)
+              </div>
+              <div class="history-meta">
+                <span>{{ formatTimeSpent(submission.timeSpent) }}</span>
+                <span>{{ formatDate(submission.submittedAt) }}</span>
+              </div>
+            </div>
+            <app-badge [variant]="getStatusVariant(submission.status)">
+              {{ getStatusLabel(submission.status) }}
+            </app-badge>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Taking -->
+    <div *ngIf="!loading() && quizState() === 'taking'" class="quiz-taking">
+      <!-- Timer Bar -->
+      <div 
+        class="timer-bar"
+        [class.timer-bar--warning]="isTimeWarning()"
+        [class.timer-bar--critical]="isTimeCritical()">
+        <div class="timer-content">
+          <div class="timer-left">
+            <h2>{{ module()?.title }}</h2>
+            <span class="timer-progress">
+              Câu {{ currentQuestionIndex() + 1 }}/{{ totalQuestions() }} • 
+              Đã trả lời {{ answeredCount() }}/{{ totalQuestions() }}
+            </span>
+          </div>
+          <div class="timer-right">
+            <div class="timer-clock">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span class="timer-value">{{ formattedTime() }}</span>
+            </div>
+            <button 
+              class="btn btn--primary btn--sm"
+              (click)="submitQuiz()"
+              [disabled]="submitting()">
+              {{ submitting() ? 'Đang nộp...' : 'Nộp bài' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="quiz-content">
+        <!-- Question Panel -->
+        <div class="question-panel">
+          <app-card variant="default" *ngIf="currentQuestion()">
+            <div class="question-header">
+              <span class="question-number">Câu {{ currentQuestionIndex() + 1 }}</span>
+              <span class="question-point">{{ currentQuestion()!.point }} điểm</span>
+            </div>
+
+            <div class="question-content">
+              <p class="question-text">{{ currentQuestion()!.question.content }}</p>
+              
+              <img 
+                *ngIf="currentQuestion()!.question.imageUrl" 
+                [src]="currentQuestion()!.question.imageUrl"
+                alt="Question image"
+                class="question-image">
+            </div>
+
+            <!-- Single Choice -->
+            <div 
+              *ngIf="currentQuestion()!.question.type === 'SINGLE'"
+              class="options-list">
+              <div 
+                *ngFor="let option of currentQuestion()!.question.options"
+                class="option-item"
+                [class.option-item--selected]="isOptionSelected(currentQuestion()!.questionId, option.id)"
+                (click)="selectOption(currentQuestion()!.questionId, option.id, 'SINGLE')">
+                <div class="option-radio">
+                  <div class="radio-dot" *ngIf="isOptionSelected(currentQuestion()!.questionId, option.id)"></div>
+                </div>
+                <div class="option-label">{{ option.label }}</div>
+                <div class="option-content">{{ option.content }}</div>
+              </div>
+            </div>
+
+            <!-- Multiple Choice -->
+            <div 
+              *ngIf="currentQuestion()!.question.type === 'MULTI'"
+              class="options-list">
+              <p class="multi-hint">Chọn một hoặc nhiều đáp án đúng</p>
+              <div 
+                *ngFor="let option of currentQuestion()!.question.options"
+                class="option-item option-item--multi"
+                [class.option-item--selected]="isOptionSelected(currentQuestion()!.questionId, option.id)"
+                (click)="selectOption(currentQuestion()!.questionId, option.id, 'MULTI')">
+                <div class="option-checkbox">
+                  <svg *ngIf="isOptionSelected(currentQuestion()!.questionId, option.id)" 
+                       width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <div class="option-label">{{ option.label }}</div>
+                <div class="option-content">{{ option.content }}</div>
+              </div>
+            </div>
+
+            <!-- Fill in the blank -->
+            <div 
+              *ngIf="currentQuestion()!.question.type === 'FILL'"
+              class="fill-answer">
+              <label>Nhập câu trả lời của bạn:</label>
+              <input 
+                type="text"
+                class="fill-input"
+                [ngModel]="userAnswers().get(currentQuestion()!.questionId)?.textAnswer || ''"
+                (ngModelChange)="updateTextAnswer(currentQuestion()!.questionId, $event)"
+                placeholder="Nhập câu trả lời...">
+            </div>
+
+            <!-- Navigation -->
+            <div class="question-nav">
+              <button 
+                class="btn btn--outline"
+                [disabled]="currentQuestionIndex() === 0"
+                (click)="prevQuestion()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Câu trước
+              </button>
+              <button 
+                class="btn btn--primary"
+                *ngIf="currentQuestionIndex() < totalQuestions() - 1"
+                (click)="nextQuestion()">
+                Câu tiếp
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              <button 
+                class="btn btn--success"
+                *ngIf="currentQuestionIndex() === totalQuestions() - 1"
+                (click)="submitQuiz()"
+                [disabled]="submitting()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13"></path>
+                  <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
+                </svg>
+                {{ submitting() ? 'Đang nộp...' : 'Nộp bài' }}
+              </button>
+            </div>
+          </app-card>
+        </div>
+
+        <!-- Question Navigator -->
+        <div class="question-navigator">
+          <app-card variant="default">
+            <h3>Danh sách câu hỏi</h3>
+            <div class="navigator-grid">
+              <button 
+                *ngFor="let q of questions(); let i = index"
+                class="nav-item"
+                [class.nav-item--current]="i === currentQuestionIndex()"
+                [class.nav-item--answered]="isQuestionAnswered(q.questionId)"
+                (click)="goToQuestion(i)">
+                {{ i + 1 }}
+              </button>
+            </div>
+            <div class="navigator-legend">
+              <div class="legend-item">
+                <span class="legend-dot legend-dot--current"></span>
+                <span>Đang xem</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot legend-dot--answered"></span>
+                <span>Đã trả lời</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot legend-dot--unanswered"></span>
+                <span>Chưa trả lời</span>
+              </div>
+            </div>
+          </app-card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Result -->
+    <div *ngIf="!loading() && quizState() === 'result' && result()" class="quiz-result">
+      <app-card variant="default" class="result-card">
+        <div class="result-header">
+          <div 
+            class="result-score-circle"
+            [class]="getScoreClass(result()!.percentage)">
+            <div class="score-value">{{ result()!.percentage | number:'1.0-0' }}%</div>
+            <div class="score-label">Điểm số</div>
+          </div>
+          <div class="result-summary">
+            <h1>{{ result()!.percentage >= passingScore() ? 'Chúc mừng!' : 'Cố gắng hơn!' }}</h1>
+            <p class="result-subtitle">
+              {{ result()!.percentage >= passingScore() 
+                 ? 'Bạn đã hoàn thành bài kiểm tra' 
+                 : 'Bạn chưa đạt điểm qua môn' }}
+            </p>
+          </div>
+        </div>
+
+        <div class="result-stats">
+          <div class="stat-item">
+            <div class="stat-value">{{ result()!.score }}/{{ result()!.maxScore }}</div>
+            <div class="stat-label">Tổng điểm</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ result()!.correctCount }}/{{ result()!.totalQuestions }}</div>
+            <div class="stat-label">Câu đúng</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ formatTimeSpent(result()!.timeSpent) }}</div>
+            <div class="stat-label">Thời gian</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">Lần {{ result()!.attemptNumber }}</div>
+            <div class="stat-label">Lượt làm</div>
+          </div>
+        </div>
+
+        <!-- Answer Review -->
+        <div class="result-answers" *ngIf="result()!.answers && result()!.answers!.length > 0">
+          <h2>Chi tiết bài làm</h2>
+          <div class="answer-list">
+            <div 
+              *ngFor="let answer of result()!.answers; let i = index"
+              class="answer-item"
+              [class.answer-item--correct]="answer.isCorrect"
+              [class.answer-item--incorrect]="!answer.isCorrect">
+              <div class="answer-header">
+                <span class="answer-number">Câu {{ i + 1 }}</span>
+                <span class="answer-status">
+                  <svg *ngIf="answer.isCorrect" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <svg *ngIf="!answer.isCorrect" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  {{ answer.isCorrect ? 'Đúng' : 'Sai' }}
+                </span>
+              </div>
+              <p class="answer-question">{{ answer.questionContent }}</p>
+              <div class="answer-details">
+                <div class="answer-your">
+                  <strong>Câu trả lời của bạn:</strong> {{ answer.selectedAnswer || 'Không trả lời' }}
+                </div>
+                <div class="answer-correct" *ngIf="answer.correctAnswer">
+                  <strong>Đáp án đúng:</strong> {{ answer.correctAnswer }}
+                </div>
+                <div class="answer-explanation" *ngIf="answer.explanation">
+                  <strong>Giải thích:</strong> {{ answer.explanation }}
+                </div>
+              </div>
+              <div class="answer-points">
+                +{{ answer.pointsEarned }} điểm
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn btn--primary" (click)="retryQuiz()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            Làm lại
+          </button>
+          <button class="btn btn--outline" (click)="goBack()">
+            Quay lại khóa học
+          </button>
+        </div>
+      </app-card>
+    </div>
+  </div>
+</app-main-layout>

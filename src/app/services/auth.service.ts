@@ -126,6 +126,11 @@ export class AuthService {
     return user ? JSON.parse(user) : null;
   }
 
+  // Get current user synchronously from BehaviorSubject
+  getCurrentUserSync(): User | null {
+    return this.currentUserSubject.value;
+  }
+
   private setUser(user: User): void {
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
   }

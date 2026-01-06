@@ -1,0 +1,297 @@
+<app-card variant="default" class="grades-card">
+  <div class="card-header">
+    <h2 class="card-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+      </svg>
+      Bảng điểm sinh viên
+    </h2>
+
+    <!-- Grade Type Selection Buttons -->
+    <div class="grade-type-actions" *ngIf="assignmentModules().length > 0">
+      <button 
+        class="btn-grade-type"
+        [class.btn-grade-type--active]="isSelectingProcessGrades()"
+        [class.btn-grade-type--invalid]="!isProcessWeightValid()"
+        (click)="isSelectingProcessGrades() ? cancelGradeTypeSelection() : startSelectingProcessGrades()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+          <path d="M2 17l10 5 10-5"></path>
+          <path d="M2 12l10 5 10-5"></path>
+        </svg>
+        Điểm quá trình
+        <span class="weight-badge" [class.weight-badge--valid]="isProcessWeightValid()" [class.weight-badge--invalid]="!isProcessWeightValid()">{{ getDisplayProcessWeight() }}%</span>
+      </button>
+      <button 
+        class="btn-grade-type btn-grade-type--final"
+        [class.btn-grade-type--active]="isSelectingFinalGrades()"
+        [class.btn-grade-type--invalid]="!isFinalWeightValid()"
+        (click)="isSelectingFinalGrades() ? cancelGradeTypeSelection() : startSelectingFinalGrades()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        Điểm kết thúc
+        <span class="weight-badge" [class.weight-badge--valid]="isFinalWeightValid()" [class.weight-badge--invalid]="!isFinalWeightValid()">{{ getDisplayFinalWeight() }}%</span>
+      </button>
+      
+      <!-- Apply button when selecting grade type -->
+      <div class="selection-actions" *ngIf="isSelectingProcessGrades() || isSelectingFinalGrades()">
+        <button class="btn-apply-selection" (click)="applyGradeTypeSelection()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Áp dụng
+        </button>
+        <button class="btn-cancel-selection" (click)="cancelGradeTypeSelection()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Hủy
+        </button>
+      </div>
+      
+      <!-- Edit Mode Toggle Button -->
+      <div class="edit-mode-actions">
+        <button 
+          class="btn-edit-mode" 
+          [class.btn-edit-mode--active]="isEditMode()"
+          (click)="toggleEditMode()">
+          <svg *ngIf="!isEditMode()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <svg *ngIf="isEditMode()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          {{ isEditMode() ? 'Xem điểm' : 'Sửa điểm' }}
+        </button>
+        
+        <!-- Pending changes indicator -->
+        <span class="pending-changes-indicator" *ngIf="hasPendingGradeChanges()">
+          {{ pendingGradeChanges().size }} thay đổi chưa lưu
+        </span>
+      </div>
+      
+      <!-- Single Save Button - Always visible -->
+      <div class="save-all-actions">
+        <button class="btn-save-all" (click)="saveAllChanges()" [disabled]="isSaving()">
+          <svg *ngIf="!isSaving()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span *ngIf="isSaving()" class="spinner-tiny"></span>
+          {{ isSaving() ? 'Đang lưu...' : 'Lưu tất cả' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selection hint -->
+  <div class="selection-hint" *ngIf="isSelectingProcessGrades() || isSelectingFinalGrades()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="16" x2="12" y2="12"></line>
+      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+    </svg>
+    {{ isSelectingProcessGrades() ? 'Chọn các cột điểm quá trình' : 'Chọn các cột điểm kết thúc' }}. Nhấn vào checkbox trên tiêu đề cột để chọn.
+  </div>
+
+  <div *ngIf="studentsLoading()" class="loading-inline">
+    <div class="spinner-small"></div>
+    <span>Đang tải dữ liệu điểm...</span>
+  </div>
+
+  <div *ngIf="!studentsLoading() && students().length === 0 && assignmentModules().length === 0" class="empty-grades">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+    </svg>
+    <p>Chưa có module bài tập hoặc trắc nghiệm nào</p>
+    <span class="empty-hint">Thêm module bài tập trong tab Course để bắt đầu chấm điểm</span>
+  </div>
+
+  <div *ngIf="!studentsLoading() && (students().length > 0 || assignmentModules().length > 0)" class="grades-table-wrapper">
+    <table class="grades-table">
+      <thead>
+        <tr>
+          <th class="col-stt">STT</th>
+          <th class="col-student-id">MSSV</th>
+          <th class="col-name">Họ và tên</th>
+          <th class="col-ban" *ngIf="isEditMode()">
+            <div class="ban-header">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              <span>Cấm thi</span>
+            </div>
+          </th>
+          <th *ngFor="let module of assignmentModules()" 
+              class="col-grade" 
+              [class.col-grade--collapsed]="isColumnCollapsed(module.id)"
+              [class.col-grade--process]="module.gradeType === 'PROCESS'"
+              [class.col-grade--final]="module.gradeType === 'FINAL'"
+              [class.col-grade--virtual]="module.isVirtual"
+              [class.col-grade--attendance]="module.virtualType === 'ATTENDANCE'"
+              [class.col-grade--bonus]="module.virtualType === 'BONUS'">
+            <div class="module-header" *ngIf="!isColumnCollapsed(module.id)">
+              <!-- Checkbox for selection mode (only show for PROCESS selection with virtual modules) -->
+              <div class="module-checkbox" *ngIf="(isSelectingProcessGrades() && (!module.isVirtual || module.virtualType === 'ATTENDANCE' || module.virtualType === 'BONUS')) || (isSelectingFinalGrades() && !module.isVirtual)">
+                <input 
+                  type="checkbox" 
+                  [checked]="isModuleSelected(module.id)"
+                  (change)="toggleModuleSelection(module.id)">
+              </div>
+              
+              <div class="module-header-content">
+                <span class="module-title">{{ module.title }}</span>
+                <span class="module-section">{{ module.sectionTitle }}</span>
+                
+                <!-- Grade type badge and weight -->
+                <div class="module-grade-info" *ngIf="module.gradeType">
+                  <span class="grade-type-badge" [class.grade-type-badge--process]="module.gradeType === 'PROCESS'" [class.grade-type-badge--final]="module.gradeType === 'FINAL'">
+                    {{ module.gradeType === 'PROCESS' ? 'QT' : 'KT' }}
+                  </span>
+                  
+                  <!-- Weight display/edit -->
+                  <span 
+                    class="weight-display" 
+                    *ngIf="editingWeightModuleId() !== module.id"
+                    (click)="startEditingWeight(module.id, module.scoreWeight)"
+                    title="Click để sửa % điểm">
+                    {{ module.scoreWeight ?? 0 }}%
+                  </span>
+                  
+                  <!-- Weight edit input - just input, no save/cancel buttons -->
+                  <div class="weight-edit" *ngIf="editingWeightModuleId() === module.id" (click)="$event.stopPropagation()">
+                    <input 
+                      type="number" 
+                      [ngModel]="tempWeight()"
+                      (ngModelChange)="tempWeight.set($event)"
+                      (blur)="applyWeight(module.id)"
+                      (keydown.enter)="applyWeight(module.id)"
+                      (keydown.escape)="cancelEditingWeight()"
+                      min="0" 
+                      max="100"
+                      class="weight-input">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="module-actions">
+                <!-- Collapse button (triangle icon) -->
+                <button class="collapse-btn" 
+                        [title]="'Thu gọn'" 
+                        (click)="toggleColumnCollapse(module.id)">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="15,5 15,19 5,12"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="collapsed-header" *ngIf="isColumnCollapsed(module.id)">
+              <button class="expand-btn" 
+                      [title]="module.title + ' - Mở rộng'" 
+                      (click)="toggleColumnCollapse(module.id)">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="9,5 9,19 19,12"></polygon>
+                </svg>
+              </button>
+            </div>
+          </th>
+          <th class="col-average">TB</th>
+          <th class="col-spacer"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let student of students(); let i = index" [class.row-banned]="isStudentBanned(i)">
+          <td class="col-stt">{{ i + 1 }}</td>
+          <td class="col-student-id">{{ student.studentId }}</td>
+          <td class="col-name">
+            <div class="student-info">
+              <span class="student-name">{{ student.fullName }}</span>
+              <span class="student-email">{{ student.email }}</span>
+            </div>
+          </td>
+          <!-- Ban checkbox column -->
+          <td class="col-ban" *ngIf="isEditMode()">
+            <label class="ban-checkbox-wrapper" [title]="isStudentBanned(i) ? 'Bỏ cấm thi' : 'Đánh dấu cấm thi'">
+              <input 
+                type="checkbox" 
+                class="ban-checkbox"
+                [checked]="isStudentBanned(i)"
+                (change)="toggleBanStudent(i)">
+              <span class="ban-checkbox-custom" [class.banned]="isStudentBanned(i)">
+                <svg *ngIf="isStudentBanned(i)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+            </label>
+          </td>
+          <td *ngFor="let module of assignmentModules()" 
+              class="col-grade"
+              [class.col-grade--collapsed]="isColumnCollapsed(module.id)"
+              [class.col-grade--virtual]="module.isVirtual"
+              [class.col-grade--attendance]="module.virtualType === 'ATTENDANCE'"
+              [class.col-grade--bonus]="module.virtualType === 'BONUS'"
+              [class.col-grade--editing]="isEditingGrade(i, module.id)"
+              [class.col-grade--has-pending]="pendingGradeChanges().has(i + '-' + module.id)">
+            <!-- View mode or not editing this cell -->
+            <span 
+              *ngIf="!isColumnCollapsed(module.id) && (!isEditMode() || !isEditingGrade(i, module.id))" 
+              class="grade-value" 
+              [class.grade-value--empty]="student.grades[module.id] === null || student.grades[module.id] === undefined"
+              [class.grade-value--editable]="isEditMode()"
+              [class.bonus-value]="module.virtualType === 'BONUS'"
+              (click)="isEditMode() ? startEditingGrade(i, module.id, student.grades[module.id]) : null">
+              <ng-container *ngIf="module.virtualType !== 'BONUS'">
+                {{ student.grades[module.id] !== null && student.grades[module.id] !== undefined ? student.grades[module.id] : '-' }}
+              </ng-container>
+              <ng-container *ngIf="module.virtualType === 'BONUS'">
+                {{ student.grades[module.id] ? '+' + student.grades[module.id] : '-' }}
+              </ng-container>
+            </span>
+            
+            <!-- Edit mode - input field -->
+            <input 
+              *ngIf="!isColumnCollapsed(module.id) && isEditMode() && isEditingGrade(i, module.id)"
+              type="number"
+              class="grade-input"
+              [class.grade-input--bonus]="module.virtualType === 'BONUS'"
+              [ngModel]="tempGrade()"
+              (ngModelChange)="tempGrade.set($event)"
+              (blur)="applyGradeEdit(i, module.id)"
+              (keydown)="onGradeKeydown($event, i, module.id)"
+              min="0"
+              [max]="module.virtualType === 'BONUS' ? 10 : 100"
+              step="0.1"
+              placeholder="-"
+              #gradeInput>
+          </td>
+          <td class="col-average">
+            <span 
+              class="average-value"
+              [class.average-value--low]="getStudentAverage(student) !== '-' && +getStudentAverage(student) < 40"
+              [class.average-value--medium]="getStudentAverage(student) !== '-' && +getStudentAverage(student) >= 40 && +getStudentAverage(student) < 70"
+              [class.average-value--good]="getStudentAverage(student) !== '-' && +getStudentAverage(student) >= 70"
+              [class.average-value--banned]="isStudentBanned(i)">
+              {{ isStudentBanned(i) ? 'CẤM THI' : getStudentAverage(student) }}
+            </span>
+          </td>
+          <td class="col-spacer"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="!studentsLoading() && students().length === 0 && assignmentModules().length > 0" class="empty-students">
+    <p>Chưa có sinh viên đăng ký khóa học này</p>
+  </div>
+</app-card>

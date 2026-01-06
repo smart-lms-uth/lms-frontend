@@ -1,0 +1,219 @@
+<app-main-layout (logoutClicked)="logout()">
+  <div class="dashboard">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header__content">
+        <h1 class="page-header__title">Xin chào, {{ displayName() }}! 👋</h1>
+        <p class="page-header__subtitle">Chào mừng bạn trở lại. Đây là tổng quan hoạt động học tập của bạn.</p>
+      </div>
+      <div class="page-header__actions">
+        <button class="btn btn--outline btn--primary" routerLink="/student/registration">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Đăng ký môn học
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div 
+        *ngFor="let stat of stats()" 
+        class="stat-card"
+        [class]="'stat-card--' + stat.variant">
+        <div class="stat-card__header">
+          <div class="stat-card__icon" [innerHTML]="stat.icon"></div>
+          <div class="stat-card__trend" *ngIf="stat.trend" [class.stat-card__trend--up]="stat.trend.value > 0">
+            <svg *ngIf="stat.trend.value > 0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+            <span>{{ stat.trend.label }}</span>
+          </div>
+        </div>
+        <div class="stat-card__content">
+          <h3 class="stat-card__value">{{ stat.value }}</h3>
+          <p class="stat-card__title">{{ stat.title }}</p>
+          <span class="stat-card__subtitle">{{ stat.subtitle }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+      <!-- Courses Section -->
+      <section class="courses-section">
+        <app-card variant="default">
+          <div card-header>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span>Khóa học đang học</span>
+          </div>
+
+          <!-- Loading state -->
+          <div *ngIf="loading()" class="courses-loading">
+            <div class="spinner"></div>
+            <p>Đang tải dữ liệu...</p>
+          </div>
+
+          <div *ngIf="!loading()" class="courses-list">
+            <div *ngFor="let course of courses()" class="course-item" (click)="goToCourse(course)">
+              <div class="course-item__image">
+                <div class="course-item__placeholder">
+                  {{ course.name.charAt(0) }}
+                </div>
+              </div>
+              <div class="course-item__content">
+                <h4 class="course-item__name">{{ course.name }}</h4>
+                <p class="course-item__instructor">{{ course.instructor }}</p>
+                <p class="course-item__next" *ngIf="course.progress < 100">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                  {{ course.nextLesson }}
+                </p>
+                <div class="course-item__progress">
+                  <app-progress 
+                    [value]="course.progress" 
+                    [showValue]="true"
+                    size="sm"
+                    variant="primary">
+                  </app-progress>
+                </div>
+              </div>
+              <button class="course-item__action">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                {{ course.progress >= 100 ? 'Xem lại' : 'Tiếp tục' }}
+              </button>
+            </div>
+
+            <div *ngIf="courses().length === 0" class="courses-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              <p>Bạn chưa đăng ký khóa học nào</p>
+              <button class="btn btn--outline btn--primary btn--sm">Khám phá khóa học</button>
+            </div>
+          </div>
+
+          <div card-footer>
+            <a routerLink="/courses" class="view-all-link">
+              Xem tất cả khóa học
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </a>
+          </div>
+        </app-card>
+      </section>
+
+      <!-- Right Sidebar -->
+      <aside class="sidebar-content">
+        <!-- Schedule Card -->
+        <app-card variant="secondary">
+          <div card-header>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span>Lịch học hôm nay</span>
+          </div>
+
+          <div class="schedule-list">
+            <div *ngFor="let item of schedule" class="schedule-item">
+              <div class="schedule-item__time">
+                {{ item.time }}
+              </div>
+              <div class="schedule-item__content">
+                <div class="schedule-item__header">
+                  <span class="schedule-item__title">{{ item.title }}</span>
+                  <app-badge 
+                    [variant]="getScheduleVariant(item.type)"
+                    size="sm">
+                    {{ getScheduleLabel(item.type) }}
+                  </app-badge>
+                </div>
+                <span class="schedule-item__location" *ngIf="item.location">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  {{ item.location }}
+                </span>
+              </div>
+            </div>
+
+            <div *ngIf="schedule.length === 0" class="schedule-empty">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <p>Không có lịch học hôm nay</p>
+            </div>
+          </div>
+        </app-card>
+
+        <!-- Profile Card -->
+        <app-card variant="primary" *ngIf="currentUser">
+          <div card-header>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>Thông tin tài khoản</span>
+          </div>
+
+          <div class="profile-card">
+            <div class="profile-card__header">
+              <app-avatar 
+                [name]="currentUser.fullName || currentUser.username"
+                size="lg"
+                status="online">
+              </app-avatar>
+              <div class="profile-card__info">
+                <h4>{{ currentUser.fullName || currentUser.username }}</h4>
+                <app-badge [variant]="currentUser.role === 'ADMIN' ? 'danger' : 'primary'" size="sm">
+                  {{ currentUser.role }}
+                </app-badge>
+              </div>
+            </div>
+
+            <div class="profile-card__details">
+              <div class="profile-detail">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>{{ currentUser.username }}</span>
+              </div>
+              <div class="profile-detail">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span>{{ currentUser.email }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div card-footer>
+            <a routerLink="/profile" class="view-all-link" trackClick="profile-link">
+              Chỉnh sửa hồ sơ
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </a>
+          </div>
+        </app-card>
+      </aside>
+    </div>
+  </div>
+</app-main-layout>
