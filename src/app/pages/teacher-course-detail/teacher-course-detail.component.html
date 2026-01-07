@@ -217,6 +217,16 @@
             </button>
             <button 
               class="tab-btn" 
+              [class.tab-btn--active]="activeTab() === 'liveclass'"
+              (click)="setActiveTab('liveclass')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              Lớp học trực tuyến
+            </button>
+            <button 
+              class="tab-btn" 
               [class.tab-btn--active]="activeTab() === 'students'"
               (click)="setActiveTab('students')">
               Sinh viên
@@ -228,6 +238,14 @@
               Điểm số
             </button>
           </div>
+        </div>
+
+        <!-- Tab Content: Live Class -->
+        <div *ngIf="activeTab() === 'liveclass'" class="tab-content">
+          <app-live-class-manager 
+            [courseId]="courseId()!" 
+            [instructorId]="currentInstructorId()">
+          </app-live-class-manager>
         </div>
 
         <!-- Tab Content: Course -->
@@ -243,6 +261,13 @@
               Nội dung khóa học
             </h2>
             <div class="card-header-actions">
+              <button *ngIf="editModeService.editMode()" class="btn btn--sm btn--secondary" (click)="openCopyContentDialog()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy từ lớp khác
+              </button>
               <button *ngIf="editModeService.editMode()" class="btn btn--sm btn--primary" (click)="addSection()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 5v14M5 12h14"/>
@@ -485,4 +510,12 @@
       </div>
     </div>
   </div>
+
+  <!-- Copy Content Dialog -->
+  <app-copy-content-dialog
+    *ngIf="showCopyContentDialog()"
+    [courseId]="courseId()!"
+    [instructorId]="currentInstructorId()"
+    (closed)="onCopyContentClosed($event)">
+  </app-copy-content-dialog>
 </app-main-layout>

@@ -11,6 +11,7 @@ import { TrackClickDirective } from '../../directives/tracking.directive';
 import { ActivityDropdownComponent } from '../../components/activity-dropdown/activity-dropdown.component';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, ProgressComponent, BadgeComponent, AvatarComponent } from '../../components/ui';
+import { UpcomingLiveClassesComponent } from '../../components/live-class';
 import { Subscription } from 'rxjs';
 
 interface StatCard {
@@ -54,7 +55,8 @@ interface ScheduleItem {
     CardComponent,
     ProgressComponent,
     BadgeComponent,
-    AvatarComponent
+    AvatarComponent,
+    UpcomingLiveClassesComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
@@ -149,8 +151,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     
     try {
-      // Load enrollments
-      const enrollments = await this.enrollmentService.getActiveEnrollmentsByStudent(userId).toPromise();
+      // Load all enrollments (including ACTIVE, PASSED, FAILED - not just ACTIVE)
+      const enrollments = await this.enrollmentService.getEnrollmentsByStudent(userId).toPromise();
       
       if (enrollments && enrollments.length > 0) {
         const coursesWithProgress: CourseItem[] = [];

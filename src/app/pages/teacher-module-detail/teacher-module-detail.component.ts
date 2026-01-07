@@ -2,8 +2,11 @@ import { Component, OnInit, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { CourseService, Course, Section, Module } from '../../services/course.service';
+import { CourseService, Course, Section, Module, QuizSettings, RandomQuestionConfig } from '../../services/course.service';
 import { GradeService, GradeResponse } from '../../services/grade.service';
+import { SubmissionService, AssignmentSubmission } from '../../services/submission.service';
+import { QuizService } from '../../services/quiz.service';
+import { QuestionBankService, Chapter, Question } from '../../services/question-bank.service';
 import { EditModeService } from '../../services/edit-mode.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
@@ -21,7 +24,15 @@ export interface StudentSubmission {
   feedback: string | null;
   gradedAt: string | null;
   gradedBy: number | null;
-  status: 'NOT_SUBMITTED' | 'SUBMITTED' | 'GRADED' | 'LATE';
+  status: 'NOT_SUBMITTED' | 'SUBMITTED' | 'GRADED' | 'LATE' | 'RETURNED' | 'RESUBMITTED';
+  // Assignment specific
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  studentNote?: string;
+  attemptNumber?: number;
+  isLate?: boolean;
   // Inline editing
   isEditing?: boolean;
   editScore?: number | null;
@@ -71,6 +82,28 @@ export class TeacherModuleDetailComponent implements OnInit {
   editVisible = true;
   editIsShowInGradeTable = true;
   
+  // Assignment/Quiz specific settings
+  editAllowLateSubmission = false;
+  editMaxAttempts = 1;
+  editTimeLimit = 0; // for quiz in minutes
+  editShuffleQuestions = false;
+  editShowCorrectAnswers = false;
+  
+  // Full Quiz Settings (editable in edit mode)
+  quizSettings = signal<QuizSettings | null>(null);
+  quizQuestionsCount = signal<number>(0);
+  
+  // Editable Quiz Settings - copy of quizSettings for editing
+  editQuizSettings: QuizSettings = this.getDefaultQuizSettings();
+  
+  // Question configuration for quiz
+  availableChapters = signal<Chapter[]>([]);
+  chaptersLoading = signal(false);
+  selectedChapterIds: number[] = [];
+  
+  // Active tab: 'config' or 'submissions'
+  activeTab = signal<'config' | 'submissions'>('config');
+  
   // Selected submission for detail view
   selectedSubmission = signal<StudentSubmission | null>(null);
   
@@ -88,6 +121,9 @@ export class TeacherModuleDetailComponent implements OnInit {
   constructor(
     private courseService: CourseService,
     private gradeService: GradeService,
+    private submissionService: SubmissionService,
+    private quizService: QuizService,
+    private questionBankService: QuestionBankService,
     private router: Router,
     private route: ActivatedRoute
   ) {}
@@ -133,8 +169,12 @@ export class TeacherModuleDetailComponent implements OnInit {
             this.module.set(module);
             this.initEditForm(module);
             
-            // Load submissions for this module
-            await this.loadSubmissions();
+            // Load quiz questions count if QUIZ type
+            if (module.type === 'QUIZ') {
+              this.loadQuizInfo(module);
+            }
+            
+            // Don't auto-load submissions, let user click on "Bài nộp" tab
           }
         }
       }
@@ -154,7 +194,171 @@ export class TeacherModuleDetailComponent implements OnInit {
     this.editGradeType = (module as any).gradeType || '';
     this.editVisible = module.visible;
     this.editIsShowInGradeTable = (module as any).isShowInGradeTable ?? true;
-    this.editDueDate = (module as any).dueDate || '';
+    
+    // Parse settings JSON for assignment/quiz specific settings
+    const settings = this.parseModuleSettings(module);
+    this.editDueDate = settings.dueDate || '';
+    this.editAllowLateSubmission = settings.allowLateSubmission || false;
+    this.editMaxAttempts = settings.maxAttempts || 1;
+    this.editTimeLimit = settings.timeLimit || 0;
+    this.editShuffleQuestions = settings.shuffleQuestions || false;
+    this.editShowCorrectAnswers = settings.showCorrectAnswers || false;
+  }
+
+  parseModuleSettings(module: Module): any {
+    try {
+      if ((module as any).settings) {
+        return typeof (module as any).settings === 'string' 
+          ? JSON.parse((module as any).settings) 
+          : (module as any).settings;
+      }
+    } catch (e) {
+      console.error('Error parsing module settings:', e);
+    }
+    return {};
+  }
+
+  async loadQuizInfo(module: Module) {
+    try {
+      // Parse quiz settings
+      const settings = this.parseModuleSettings(module) as QuizSettings;
+      const mergedSettings = { ...this.getDefaultQuizSettings(), ...settings };
+      this.quizSettings.set(mergedSettings);
+      this.editQuizSettings = { ...mergedSettings };
+      
+      // Load quiz questions count
+      const questions = await this.quizService.getQuizQuestions(module.id).toPromise();
+      this.quizQuestionsCount.set(questions?.length || 0);
+    } catch (error) {
+      console.error('Error loading quiz info:', error);
+    }
+  }
+
+  // Get default quiz settings
+  getDefaultQuizSettings(): QuizSettings {
+    return {
+      // Time
+      durationMinutes: 60,
+      // Attempt
+      maxAttempts: 1,
+      gradingMethod: 'HIGHEST',
+      // Questions
+      questionSelectionMode: 'MANUAL',
+      distributionMode: 'SAME_FOR_ALL',
+      selectedQuestionIds: [],
+      randomConfig: {
+        fromChapterIds: [],
+        easyCount: 0,
+        mediumCount: 0,
+        hardCount: 0
+      },
+      // Display
+      shuffleQuestions: true,
+      shuffleAnswers: true,
+      oneQuestionPerPage: false,
+      allowBackNavigation: true,
+      showQuestionNumber: true,
+      showPointsPerQuestion: false,
+      // Review
+      showCorrectAnswers: false,
+      allowReview: true,
+      showScoreImmediately: true,
+      // Security
+      requireFullscreen: false,
+      detectTabSwitch: false,
+      maxTabSwitchCount: 3,
+      requireWebcam: false
+    };
+  }
+
+  // Load chapters for question configuration
+  async loadChapters() {
+    const subjectId = this.course()?.subjectId;
+    if (!subjectId) return;
+    
+    this.chaptersLoading.set(true);
+    try {
+      const chapters = await this.questionBankService.getChaptersBySubject(subjectId).toPromise();
+      this.availableChapters.set(chapters || []);
+      
+      // Initialize selectedChapterIds from editQuizSettings
+      if (this.editQuizSettings.randomConfig?.fromChapterIds) {
+        this.selectedChapterIds = [...this.editQuizSettings.randomConfig.fromChapterIds];
+      }
+    } catch (error) {
+      console.error('Error loading chapters:', error);
+    } finally {
+      this.chaptersLoading.set(false);
+    }
+  }
+
+  // Toggle chapter selection
+  toggleChapter(chapterId: number) {
+    const index = this.selectedChapterIds.indexOf(chapterId);
+    if (index > -1) {
+      this.selectedChapterIds.splice(index, 1);
+    } else {
+      this.selectedChapterIds.push(chapterId);
+    }
+    // Update editQuizSettings
+    if (!this.editQuizSettings.randomConfig) {
+      this.editQuizSettings.randomConfig = { fromChapterIds: [], easyCount: 0, mediumCount: 0, hardCount: 0 };
+    }
+    this.editQuizSettings.randomConfig.fromChapterIds = [...this.selectedChapterIds];
+  }
+
+  isChapterSelected(chapterId: number): boolean {
+    return this.selectedChapterIds.includes(chapterId);
+  }
+
+  // Calculate total questions from random config
+  getTotalRandomQuestions(): number {
+    const rc = this.editQuizSettings.randomConfig;
+    if (!rc) return 0;
+    return (rc.easyCount || 0) + (rc.mediumCount || 0) + (rc.hardCount || 0);
+  }
+
+  // Navigate to start quiz (for preview/testing)
+  startQuiz() {
+    if (this.moduleId() && this.courseId()) {
+      // Navigate to student quiz page for testing
+      this.router.navigate(['/student/courses', this.courseId(), 'modules', this.moduleId()]);
+    }
+  }
+
+  // Get quiz setting display helpers
+  getGradingMethodLabel(method: string | undefined): string {
+    switch (method) {
+      case 'HIGHEST': return 'Điểm cao nhất';
+      case 'AVERAGE': return 'Điểm trung bình';
+      case 'FIRST': return 'Lần làm đầu tiên';
+      case 'LAST': return 'Lần làm cuối cùng';
+      default: return 'Chưa cấu hình';
+    }
+  }
+
+  getQuestionModeLabel(mode: string | undefined): string {
+    switch (mode) {
+      case 'MANUAL': return 'Chọn thủ công';
+      case 'RANDOM': return 'Ngẫu nhiên từ ngân hàng';
+      case 'MIXED': return 'Kết hợp';
+      default: return 'Chưa cấu hình';
+    }
+  }
+
+  // Preview quiz in a new page (teacher can see how the quiz looks for students)
+  previewQuiz() {
+    if (this.moduleId() && this.courseId()) {
+      // Navigate to quiz preview page
+      this.router.navigate(['/teacher/courses', this.courseId(), 'modules', this.moduleId(), 'preview']);
+    }
+  }
+
+  setActiveTab(tab: 'config' | 'submissions') {
+    this.activeTab.set(tab);
+    if (tab === 'submissions' && this.submissions().length === 0) {
+      this.loadSubmissions();
+    }
   }
 
   async loadSubmissions() {
@@ -163,40 +367,152 @@ export class TeacherModuleDetailComponent implements OnInit {
     this.submissionsLoading.set(true);
     
     try {
-      // Get grades data from course
-      const gradesData = await this.gradeService.getCourseGrades(this.courseId()!).toPromise();
+      const moduleType = this.module()?.type;
       
-      if (gradesData) {
-        const moduleIdStr = this.moduleId()!.toString();
-        const moduleInfo = gradesData.modules.find(m => m.id === this.moduleId());
-        
-        // Transform students data to submissions
-        const submissions: StudentSubmission[] = gradesData.students.map(student => {
-          const score = student.grades[moduleIdStr];
-          const hasScore = score !== null && score !== undefined;
-          
-          return {
-            studentId: student.studentId,
-            studentCode: student.studentCode,
-            fullName: student.fullName,
-            email: student.email,
-            enrollmentId: 0, // Will need to get from API
-            submittedAt: hasScore ? new Date().toISOString() : null, // Placeholder
-            score: score,
-            maxScore: moduleInfo?.maxScore || 100,
-            feedback: null,
-            gradedAt: hasScore ? new Date().toISOString() : null,
-            gradedBy: null,
-            status: hasScore ? 'GRADED' : 'NOT_SUBMITTED'
-          };
-        });
-        
-        this.submissions.set(submissions);
+      // Nếu là ASSIGNMENT, load từ SubmissionService
+      if (moduleType === 'ASSIGNMENT') {
+        await this.loadAssignmentSubmissions();
+      } else {
+        // Load từ GradeService cho các loại module khác (QUIZ, etc.)
+        await this.loadGradeSubmissions();
       }
     } catch (error) {
       console.error('Error loading submissions:', error);
     } finally {
       this.submissionsLoading.set(false);
+    }
+  }
+
+  async loadAssignmentSubmissions() {
+    try {
+      // Load cả 2 nguồn data song song
+      const [assignmentSubmissions, gradesData] = await Promise.all([
+        this.submissionService.getAllSubmissions(this.moduleId()!).toPromise(),
+        this.gradeService.getCourseGrades(this.courseId()!).toPromise()
+      ]);
+
+      const moduleInfo = gradesData?.modules.find(m => m.id === this.moduleId());
+      const maxScore = moduleInfo?.maxScore || 100;
+      const moduleIdStr = this.moduleId()!.toString();
+
+      // Tạo map từ studentId -> submission để lookup nhanh
+      const submissionMap = new Map<number, AssignmentSubmission>();
+      if (assignmentSubmissions) {
+        assignmentSubmissions.forEach(sub => {
+          submissionMap.set(sub.studentId, sub);
+        });
+      }
+
+      // Tạo map từ studentId -> grade score từ gradesData
+      const gradeMap = new Map<number, number | null>();
+      if (gradesData?.students) {
+        gradesData.students.forEach(student => {
+          const gradeScore = student.grades[moduleIdStr];
+          gradeMap.set(student.studentId, gradeScore ?? null);
+        });
+      }
+
+      // Merge: lấy tất cả sinh viên enrolled, ghép với bài nộp (nếu có)
+      const submissions: StudentSubmission[] = [];
+      
+      if (gradesData?.students) {
+        gradesData.students.forEach(student => {
+          const sub = submissionMap.get(student.studentId);
+          const savedScore = gradeMap.get(student.studentId);
+          
+          if (sub) {
+            // Sinh viên đã nộp bài - lấy điểm từ gradesData (CourseGrade), không từ submission
+            const hasScore = savedScore !== null && savedScore !== undefined;
+            submissions.push({
+              studentId: sub.studentId,
+              studentCode: sub.studentCode || student.studentCode,
+              fullName: sub.studentName || student.fullName,
+              email: student.email,
+              enrollmentId: sub.enrollmentId,
+              submittedAt: sub.submittedAt,
+              score: savedScore ?? null,
+              maxScore: sub.maxScore || maxScore,
+              feedback: sub.feedback || null,
+              gradedAt: sub.gradedAt || null,
+              gradedBy: null,
+              status: hasScore ? 'GRADED' : this.mapSubmissionStatus(sub.status, sub.isLate),
+              fileUrl: sub.fileUrl,
+              fileName: sub.fileName,
+              fileType: sub.fileType,
+              fileSize: sub.fileSize,
+              studentNote: sub.studentNote,
+              attemptNumber: sub.attemptNumber,
+              isLate: sub.isLate
+            });
+          } else {
+            // Sinh viên chưa nộp bài
+            submissions.push({
+              studentId: student.studentId,
+              studentCode: student.studentCode,
+              fullName: student.fullName,
+              email: student.email,
+              enrollmentId: 0,
+              submittedAt: null,
+              score: savedScore ?? null,
+              maxScore: maxScore,
+              feedback: null,
+              gradedAt: null,
+              gradedBy: null,
+              status: 'NOT_SUBMITTED'
+            });
+          }
+        });
+      }
+      
+      this.submissions.set(submissions);
+    } catch (error) {
+      console.error('Error loading assignment submissions:', error);
+      // Fallback to grade submissions
+      await this.loadGradeSubmissions();
+    }
+  }
+
+  mapSubmissionStatus(status: string, isLate?: boolean): StudentSubmission['status'] {
+    if (isLate) return 'LATE';
+    switch (status) {
+      case 'SUBMITTED': return 'SUBMITTED';
+      case 'GRADED': return 'GRADED';
+      case 'RETURNED': return 'RETURNED';
+      case 'RESUBMITTED': return 'RESUBMITTED';
+      default: return 'NOT_SUBMITTED';
+    }
+  }
+
+  async loadGradeSubmissions() {
+    // Get grades data from course
+    const gradesData = await this.gradeService.getCourseGrades(this.courseId()!).toPromise();
+    
+    if (gradesData) {
+      const moduleIdStr = this.moduleId()!.toString();
+      const moduleInfo = gradesData.modules.find(m => m.id === this.moduleId());
+      
+      // Transform students data to submissions
+      const submissions: StudentSubmission[] = gradesData.students.map(student => {
+        const score = student.grades[moduleIdStr];
+        const hasScore = score !== null && score !== undefined;
+        
+        return {
+          studentId: student.studentId,
+          studentCode: student.studentCode,
+          fullName: student.fullName,
+          email: student.email,
+          enrollmentId: 0, // Will need to get from API
+          submittedAt: hasScore ? new Date().toISOString() : null, // Placeholder
+          score: score,
+          maxScore: moduleInfo?.maxScore || 100,
+          feedback: null,
+          gradedAt: hasScore ? new Date().toISOString() : null,
+          gradedBy: null,
+          status: hasScore ? 'GRADED' : 'NOT_SUBMITTED'
+        };
+      });
+      
+      this.submissions.set(submissions);
     }
   }
 
@@ -295,15 +611,29 @@ export class TeacherModuleDetailComponent implements OnInit {
     if (!this.module() || !this.courseId()) return;
     
     try {
-      // Update module basic info
+      // Build settings object based on module type
+      let settings: any = {};
+      
+      if (this.module()!.type === 'ASSIGNMENT') {
+        settings = {
+          dueDate: this.editDueDate || null,
+          allowLateSubmission: this.editAllowLateSubmission,
+          maxAttempts: this.editMaxAttempts
+        };
+      } else if (this.module()!.type === 'QUIZ') {
+        settings = { ...this.editQuizSettings };
+      }
+      
+      // Update module basic info + settings
       const updated = await this.courseService.updateModule(
         this.module()!.id,
         {
           title: this.editTitle,
           description: this.editDescription,
-          contentUrl: this.editContentUrl,
-          visible: this.editVisible
-        }
+          resourceUrl: this.editContentUrl,
+          visible: this.editVisible,
+          settings: Object.keys(settings).length > 0 ? settings : undefined
+        } as any
       ).toPromise();    
       
       // Update grade config if gradable module
@@ -324,9 +654,15 @@ export class TeacherModuleDetailComponent implements OnInit {
           ...updated,
           scoreWeight: this.editScoreWeight,
           gradeType: this.editGradeType,
-          isShowInGradeTable: this.editIsShowInGradeTable
+          isShowInGradeTable: this.editIsShowInGradeTable,
+          settings: settings
         } as any);
         this.isEditingSettings.set(false);
+        
+        // Update quiz settings signal for display
+        if (this.module()!.type === 'QUIZ') {
+          this.quizSettings.set({ ...this.editQuizSettings });
+        }
       }
     } catch (error) {
       console.error('Error updating module:', error);
@@ -337,6 +673,10 @@ export class TeacherModuleDetailComponent implements OnInit {
     this.isEditingSettings.set(false);
     if (this.module()) {
       this.initEditForm(this.module()!);
+      // Reset editQuizSettings from quizSettings
+      if (this.module()!.type === 'QUIZ') {
+        this.editQuizSettings = { ...this.quizSettings() };
+      }
     }
   }
 
@@ -518,12 +858,27 @@ export class TeacherModuleDetailComponent implements OnInit {
     });
   }
 
+  // Format date time for submission
+  formatDateTime(dateStr: string | null): string {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
   // Get status badge variant
   getStatusBadgeVariant(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
     switch (status) {
       case 'GRADED': return 'success';
       case 'SUBMITTED': return 'warning';
       case 'LATE': return 'danger';
+      case 'RETURNED': return 'warning';
+      case 'RESUBMITTED': return 'warning';
       default: return 'neutral';
     }
   }
@@ -533,7 +888,9 @@ export class TeacherModuleDetailComponent implements OnInit {
       'NOT_SUBMITTED': 'Chưa nộp',
       'SUBMITTED': 'Đã nộp',
       'GRADED': 'Đã chấm',
-      'LATE': 'Nộp trễ'
+      'LATE': 'Nộp trễ',
+      'RETURNED': 'Trả lại',
+      'RESUBMITTED': 'Nộp lại'
     };
     return labels[status] || status;
   }

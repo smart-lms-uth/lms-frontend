@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { QuizService, QuizQuestion, StartQuizResponse, SubmissionResult, AnswerRequest, SubmissionSummary } from '../../services/quiz.service';
 import { CourseService, Course, Section, Module } from '../../services/course.service';
+import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
 
@@ -115,6 +116,7 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
   constructor(
     private quizService: QuizService,
     private courseService: CourseService,
+    private activityService: ActivityService,
     private router: Router,
     private route: ActivatedRoute
   ) {}
@@ -230,6 +232,13 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
         this.attemptNumber.set(response.attemptNumber);
         this.startedAt.set(new Date(response.startedAt));
         
+        // Track quiz start activity
+        this.activityService.trackQuizStart(
+          this.moduleId()!.toString(),
+          this.module()?.title || 'Quiz',
+          this.courseId()!.toString()
+        );
+        
         // Initialize timer
         this.remainingSeconds.set(response.timeLimit * 60);
         this.startTimer();
@@ -289,6 +298,15 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
       if (result) {
         this.result.set(result);
         this.quizState.set('result');
+        
+        // Track quiz submission activity
+        this.activityService.trackQuizSubmit(
+          this.moduleId()!.toString(),
+          this.module()?.title || 'Quiz',
+          this.courseId()?.toString(),
+          result.score,
+          result.maxScore
+        );
       }
     } catch (error: any) {
       console.error('Error submitting quiz:', error);

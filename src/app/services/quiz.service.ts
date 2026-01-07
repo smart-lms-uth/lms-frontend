@@ -101,14 +101,38 @@ export interface SubmissionSummary {
   status: 'IN_PROGRESS' | 'SUBMITTED' | 'GRADED';
 }
 
+// Add Question Request
+export interface AddQuestionRequest {
+  questionId: number;
+  point?: number;
+  orderIndex?: number;
+}
+
+// Add Questions Request (bulk)
+export interface AddQuestionsRequest {
+  questions: AddQuestionRequest[];
+}
+
+// Random Questions Request
+export interface RandomQuestionsRequest {
+  subjectId?: number;           // Dùng khi lấy random từ toàn bộ subject
+  fromChapterIds?: number[];    // Dùng khi lấy random từ các chapters cụ thể
+  easyCount?: number;
+  mediumCount?: number;
+  hardCount?: number;
+  pointPerQuestion?: number;
+}
+
 // ==================== SERVICE ====================
 
 @Injectable({
   providedIn: 'root'
 })
 export class QuizService {
-  private apiUrl = `${environment.apiUrl}/api/quiz`;
-  private questionsUrl = `${environment.apiUrl}/api/modules`;
+  // Quiz API endpoints don't use /v1 prefix
+  private baseUrl = environment.apiUrl.replace('/api/v1', '');
+  private apiUrl = `${this.baseUrl}/api/quiz`;
+  private questionsUrl = `${this.baseUrl}/api/modules`;
 
   constructor(private http: HttpClient) {}
 
@@ -199,6 +223,56 @@ export class QuizService {
   getSubmissionDetail(submissionId: number): Observable<any> {
     return this.http.get<any>(
       `${this.apiUrl}/submissions/${submissionId}`
+    );
+  }
+
+  // ============ QUẢN LÝ CÂU HỎI ĐỀ THI ============
+
+  /**
+   * Thêm câu hỏi vào đề thi
+   */
+  addQuestionToQuiz(moduleId: number, request: AddQuestionRequest): Observable<QuizQuestion> {
+    return this.http.post<QuizQuestion>(
+      `${this.questionsUrl}/${moduleId}/quiz-questions`,
+      request
+    );
+  }
+
+  /**
+   * Thêm nhiều câu hỏi vào đề thi
+   */
+  addQuestionsToQuiz(moduleId: number, request: AddQuestionsRequest): Observable<QuizQuestion[]> {
+    return this.http.post<QuizQuestion[]>(
+      `${this.questionsUrl}/${moduleId}/quiz-questions/bulk`,
+      request
+    );
+  }
+
+  /**
+   * Thêm câu hỏi ngẫu nhiên vào đề thi
+   */
+  addRandomQuestionsToQuiz(moduleId: number, request: RandomQuestionsRequest): Observable<QuizQuestion[]> {
+    return this.http.post<QuizQuestion[]>(
+      `${this.questionsUrl}/${moduleId}/quiz-questions/random`,
+      request
+    );
+  }
+
+  /**
+   * Xóa câu hỏi khỏi đề thi
+   */
+  removeQuestionFromQuiz(moduleId: number, questionId: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.questionsUrl}/${moduleId}/quiz-questions/${questionId}`
+    );
+  }
+
+  /**
+   * Xóa tất cả câu hỏi khỏi đề thi
+   */
+  clearQuizQuestions(moduleId: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.questionsUrl}/${moduleId}/quiz-questions`
     );
   }
 

@@ -87,6 +87,14 @@ export class EnrollmentService {
   }
 
   /**
+   * Giảng viên thêm sinh viên vào lớp (bỏ qua kiểm tra trạng thái lớp)
+   */
+  teacherEnrollStudent(courseId: number, studentId: number): Observable<Enrollment> {
+    return this.http.post<ApiResponse<Enrollment>>(`${COURSE_API}/enrollments/teacher/enroll?courseId=${courseId}&studentId=${studentId}`, {})
+      .pipe(map(res => res.data));
+  }
+
+  /**
    * Hủy đăng ký
    */
   cancelEnrollment(enrollmentId: number): Observable<Enrollment> {

@@ -210,52 +210,191 @@
 
         <!-- Submission Form (for ASSIGNMENT) -->
         <div class="submission-section" *ngIf="module()!.type === 'ASSIGNMENT'">
-          <h4 class="submission-title">Nộp bài</h4>
-          
-          <div *ngIf="hasSubmitted()" class="submitted-notice">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          <h4 class="submission-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <span>Bạn đã nộp bài thành công!</span>
-          </div>
-          
-          <div *ngIf="!hasSubmitted()" class="submission-form">
-            <div class="form-group">
-              <label class="form-label">Nội dung bài làm</label>
-              <textarea 
-                class="form-textarea" 
-                [(ngModel)]="submissionText" 
-                rows="5" 
-                placeholder="Nhập nội dung bài làm của bạn..."></textarea>
+            Nộp bài tập
+          </h4>
+
+          <!-- Submission stats -->
+          <div class="submission-stats">
+            <div class="stat-item">
+              <span class="stat-label">Số lần nộp:</span>
+              <span class="stat-value">{{ attemptCount() }} / {{ maxAttempts() === -1 ? '∞' : maxAttempts() }}</span>
             </div>
+            <div class="stat-item" *ngIf="dueDate()">
+              <span class="stat-label">Hạn nộp:</span>
+              <span class="stat-value">{{ dueDate() | date:'HH:mm dd/MM/yyyy' }}</span>
+            </div>
+            <div class="stat-item" *ngIf="dueDate()">
+              <span class="stat-label">Thời gian còn lại:</span>
+              <span class="stat-value time-remaining" 
+                    [class.time-warning]="!isOverdue() && timeRemaining().includes('giờ') && !timeRemaining().includes('ngày')"
+                    [class.time-danger]="isOverdue()">
+                {{ timeRemaining() }}
+                <span *ngIf="isOverdue() && allowLateSubmission()" class="late-allowed-badge">Cho phép nộp trễ</span>
+              </span>
+            </div>
+            <div class="stat-item" *ngIf="latestSubmission()">
+              <span class="stat-label">Trạng thái:</span>
+              <span class="stat-value status-badge" 
+                    [class.status-submitted]="latestSubmission()!.status === 'SUBMITTED'"
+                    [class.status-graded]="latestSubmission()!.status === 'GRADED'"
+                    [class.status-returned]="latestSubmission()!.status === 'RETURNED'">
+                {{ getSubmissionStatusText(latestSubmission()!.status) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Deadline Warning -->
+          <div *ngIf="isOverdue() && !allowLateSubmission()" class="deadline-warning deadline-warning--error">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Đã hết hạn nộp bài. Bạn không thể nộp bài nữa.</span>
+          </div>
+
+          <div *ngIf="isOverdue() && allowLateSubmission()" class="deadline-warning deadline-warning--warn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span>Đã quá hạn nộp bài. Bài nộp sẽ được đánh dấu là trễ hạn.</span>
+          </div>
+
+          <!-- Latest Submission Display -->
+          <div *ngIf="latestSubmission()" class="latest-submission">
+            <h5 class="submission-subtitle">Bài nộp gần nhất</h5>
+            <div class="submission-info-card">
+              <div class="file-info">
+                <div class="file-icon" [innerHTML]="getFileIcon(latestSubmission()!.fileName)"></div>
+                <div class="file-details">
+                  <a [href]="latestSubmission()!.fileUrl" target="_blank" class="file-name">
+                    {{ latestSubmission()!.fileName }}
+                  </a>
+                  <span class="file-meta">
+                    {{ formatFileSize(latestSubmission()!.fileSize) }} • 
+                    Nộp lúc {{ latestSubmission()!.submittedAt | date:'HH:mm dd/MM/yyyy' }}
+                    <span *ngIf="latestSubmission()!.isLate" class="late-badge">Trễ hạn</span>
+                  </span>
+                </div>
+              </div>
+              <div class="submission-note" *ngIf="latestSubmission()!.studentNote">
+                <span class="note-label">Ghi chú:</span>
+                <p class="note-content">{{ latestSubmission()!.studentNote }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload Form -->
+          <div class="submission-form" *ngIf="canSubmit()">
+            <h5 class="submission-subtitle" *ngIf="latestSubmission()">Nộp lại bài</h5>
             
             <div class="form-group">
-              <label class="form-label">Hoặc tải file lên</label>
-              <div class="file-upload">
-                <input type="file" id="submission-file" (change)="onFileSelected($event)">
-                <label for="submission-file" class="file-upload-label">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <label class="form-label">Chọn file bài làm <span class="required">*</span></label>
+              <div class="file-upload-area" 
+                   [class.dragging]="isDragging()"
+                   [class.has-file]="submissionFile"
+                   (dragover)="onDragOver($event)"
+                   (dragleave)="onDragLeave($event)"
+                   (drop)="onDrop($event)">
+                <input type="file" id="submission-file" (change)="onFileSelected($event)" #fileInput>
+                
+                <div *ngIf="!submissionFile" class="upload-placeholder">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                   </svg>
-                  <span>{{ submissionFile ? submissionFile.name : 'Chọn file' }}</span>
-                </label>
+                  <p class="upload-text">Kéo thả file vào đây hoặc</p>
+                  <label for="submission-file" class="btn btn--outline">Chọn file</label>
+                  <p class="upload-hint">Tối đa 50MB. Định dạng: PDF, DOC, DOCX, ZIP, RAR, JPG, PNG...</p>
+                </div>
+                
+                <div *ngIf="submissionFile" class="selected-file">
+                  <div class="file-icon" [innerHTML]="getFileIcon(submissionFile.name)"></div>
+                  <div class="file-details">
+                    <span class="file-name">{{ submissionFile.name }}</span>
+                    <span class="file-size">{{ formatFileSize(submissionFile.size) }}</span>
+                  </div>
+                  <button type="button" class="btn-remove" (click)="removeFile()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
               </div>
+            </div>
+
+            <!-- Upload Progress -->
+            <div *ngIf="isUploading()" class="upload-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width.%]="uploadProgress()"></div>
+              </div>
+              <span class="progress-text">Đang tải lên... {{ uploadProgress() }}%</span>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Ghi chú (tùy chọn)</label>
+              <textarea 
+                class="form-textarea" 
+                [(ngModel)]="submissionText" 
+                rows="3" 
+                placeholder="Nhập ghi chú về bài làm của bạn (nếu có)..."></textarea>
             </div>
             
             <button 
               class="btn btn--primary btn--lg" 
               (click)="submitAssignment()"
-              [disabled]="submitting() || (!submissionText && !submissionFile)">
-              <svg *ngIf="!submitting()" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              [disabled]="submitting() || isUploading() || !submissionFile">
+              <svg *ngIf="!submitting() && !isUploading()" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
               </svg>
-              <span *ngIf="submitting()" class="spinner-small"></span>
-              {{ submitting() ? 'Đang nộp...' : 'Nộp bài' }}
+              <span *ngIf="submitting() || isUploading()" class="spinner-small"></span>
+              {{ isUploading() ? 'Đang tải file...' : (submitting() ? 'Đang nộp...' : 'Nộp bài') }}
             </button>
+          </div>
+
+          <!-- Cannot submit anymore -->
+          <div *ngIf="!canSubmit() && maxAttempts() !== -1" class="no-more-attempts">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Bạn đã hết số lần nộp bài cho phép.</span>
+          </div>
+
+          <!-- Submission History -->
+          <div *ngIf="submissionHistory().length > 1" class="submission-history">
+            <h5 class="submission-subtitle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Lịch sử nộp bài
+            </h5>
+            <div class="history-list">
+              <div *ngFor="let submission of submissionHistory(); let i = index" class="history-item">
+                <span class="attempt-number">Lần {{ submission.attemptNumber }}</span>
+                <a [href]="submission.fileUrl" target="_blank" class="history-file">{{ submission.fileName }}</a>
+                <span class="history-time">{{ submission.submittedAt | date:'HH:mm dd/MM/yyyy' }}</span>
+                <span class="history-status status-badge"
+                      [class.status-submitted]="submission.status === 'SUBMITTED'"
+                      [class.status-graded]="submission.status === 'GRADED'"
+                      [class.status-returned]="submission.status === 'RETURNED'">
+                  {{ getSubmissionStatusText(submission.status) }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

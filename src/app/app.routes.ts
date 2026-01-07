@@ -67,6 +67,10 @@ export const routes: Routes = [
       {
         path: 'courses/:courseId/sections/:sectionId/modules/:moduleId',
         loadComponent: () => import('./pages/teacher-module-detail/teacher-module-detail.component').then(m => m.TeacherModuleDetailComponent)
+      },
+      {
+        path: 'question-bank',
+        loadComponent: () => import('./pages/teacher-question-bank/teacher-question-bank').then(m => m.TeacherQuestionBankComponent)
       }
     ]
   },
@@ -96,6 +100,12 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/student-quiz/student-quiz.component').then(m => m.StudentQuizComponent)
       }
     ]
+  },
+  // AI Chat
+  {
+    path: 'ai-chat',
+    loadComponent: () => import('./pages/ai-chat/ai-chat.component').then(m => m.AiChatComponent),
+    canActivate: [AuthGuard]
   },
   {
     path: '**',

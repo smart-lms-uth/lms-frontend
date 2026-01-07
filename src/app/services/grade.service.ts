@@ -89,6 +89,7 @@ export interface StudentGradeUpdate {
   finalModuleIds: number[];     // Modules được tick KT
   attendanceScore?: number;     // Điểm CC (0-10)
   bonusScore?: number;          // Điểm cộng (0-10)
+  isBanned?: boolean;           // Đánh dấu cấm thi
 }
 
 /**

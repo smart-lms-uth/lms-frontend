@@ -220,8 +220,541 @@
         </div>
       </app-card>
 
+      <!-- Tabs Navigation for QUIZ/ASSIGNMENT -->
+      <div *ngIf="isGradableModule()" class="module-tabs">
+        <button class="module-tab" [class.active]="activeTab() === 'config'" (click)="setActiveTab('config')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Cấu hình
+        </button>
+        <button class="module-tab" [class.active]="activeTab() === 'submissions'" (click)="setActiveTab('submissions')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Bài nộp / Điểm
+        </button>
+      </div>
+
+      <!-- Config Tab Content -->
+      <app-card *ngIf="isGradableModule() && activeTab() === 'config'" variant="default" class="config-card">
+        <h3 class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Cấu hình {{ module()!.type === 'ASSIGNMENT' ? 'Bài tập' : 'Trắc nghiệm' }}
+        </h3>
+
+        <!-- Assignment Settings -->
+        <div *ngIf="module()!.type === 'ASSIGNMENT'" class="config-form">
+          <div class="config-section">
+            <h4 class="config-section-title">Thời gian nộp bài</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Hạn nộp bài</label>
+                <input type="datetime-local" class="form-input" [(ngModel)]="editDueDate">
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4 class="config-section-title">Quy định nộp bài</h4>
+            <div class="form-row">
+              <div class="form-group form-group--checkbox">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editAllowLateSubmission">
+                  <span>Cho phép nộp trễ</span>
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Số lần nộp tối đa</label>
+                <input type="number" class="form-input" [(ngModel)]="editMaxAttempts" min="1" max="10">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn--primary" (click)="saveModuleSettings()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              Lưu cấu hình
+            </button>
+          </div>
+        </div>
+
+        <!-- Quiz Settings - Full Display with Edit Mode Support -->
+        <div *ngIf="module()!.type === 'QUIZ'" class="quiz-config-display">
+          
+          <!-- Quick Stats -->
+          <div class="quiz-stats-row">
+            <div class="quiz-stat-item">
+              <div class="quiz-stat-value">{{ quizQuestionsCount() }}</div>
+              <div class="quiz-stat-label">Câu hỏi</div>
+            </div>
+            <div class="quiz-stat-item">
+              <div class="quiz-stat-value">{{ editModeService.editMode() ? editQuizSettings.durationMinutes : (quizSettings()?.durationMinutes || 0) }}</div>
+              <div class="quiz-stat-label">Phút</div>
+            </div>
+            <div class="quiz-stat-item">
+              <div class="quiz-stat-value">{{ editModeService.editMode() ? editQuizSettings.maxAttempts : (quizSettings()?.maxAttempts || 1) }}</div>
+              <div class="quiz-stat-label">Lượt làm</div>
+            </div>
+          </div>
+
+          <!-- ===== EDIT MODE ===== -->
+          <ng-container *ngIf="editModeService.editMode()">
+            
+            <!-- Time & Attempt Settings - Editable -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Thời gian & Số lượt làm
+              </h4>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Thời gian làm bài (phút)</label>
+                  <input type="number" class="form-input" [(ngModel)]="editQuizSettings.durationMinutes" min="1" max="300">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Số lượt làm tối đa</label>
+                  <input type="number" class="form-input" [(ngModel)]="editQuizSettings.maxAttempts" min="1" max="10">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phương thức tính điểm</label>
+                  <select class="form-select" [(ngModel)]="editQuizSettings.gradingMethod">
+                    <option value="HIGHEST">Điểm cao nhất</option>
+                    <option value="LAST">Lần làm cuối</option>
+                    <option value="AVERAGE">Điểm trung bình</option>
+                    <option value="FIRST">Lần làm đầu</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Question Configuration - Editable -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Cấu hình câu hỏi
+              </h4>
+              
+              <!-- Question Selection Mode -->
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label">Chế độ chọn câu hỏi</label>
+                <select class="form-select" [(ngModel)]="editQuizSettings.questionSelectionMode" (change)="loadChapters()">
+                  <option value="MANUAL">Chọn thủ công</option>
+                  <option value="RANDOM">Ngẫu nhiên từ ngân hàng</option>
+                  <option value="MIXED">Kết hợp</option>
+                </select>
+              </div>
+
+              <!-- Random Config (when RANDOM or MIXED) -->
+              <ng-container *ngIf="editQuizSettings.questionSelectionMode === 'RANDOM' || editQuizSettings.questionSelectionMode === 'MIXED'">
+                <!-- Chapter Selection -->
+                <div class="form-group" style="margin-bottom: 1rem;">
+                  <label class="form-label">Chọn chương (để lấy câu hỏi ngẫu nhiên)</label>
+                  <div class="chapter-list" *ngIf="!chaptersLoading(); else loadingChapters">
+                    <div class="chapter-item" *ngFor="let chapter of availableChapters()" 
+                         [class.selected]="isChapterSelected(chapter.id)"
+                         (click)="toggleChapter(chapter.id)">
+                      <input type="checkbox" [checked]="isChapterSelected(chapter.id)" (click)="$event.stopPropagation()">
+                      <span>{{ chapter.name }}</span>
+                      <span class="chapter-count">({{ chapter.questionCount || 0 }} câu)</span>
+                    </div>
+                    <div class="empty-chapters" *ngIf="availableChapters().length === 0">
+                      Chưa có chương nào. Vui lòng thêm câu hỏi trong ngân hàng câu hỏi.
+                    </div>
+                  </div>
+                  <ng-template #loadingChapters>
+                    <div class="loading-inline">Đang tải chương...</div>
+                  </ng-template>
+                </div>
+
+                <!-- Question Count by Difficulty -->
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                  <div class="form-group">
+                    <label class="form-label">Số câu dễ</label>
+                    <input type="number" class="form-input" [(ngModel)]="editQuizSettings.randomConfig!.easyCount" min="0" max="100">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Số câu trung bình</label>
+                    <input type="number" class="form-input" [(ngModel)]="editQuizSettings.randomConfig!.mediumCount" min="0" max="100">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Số câu khó</label>
+                    <input type="number" class="form-input" [(ngModel)]="editQuizSettings.randomConfig!.hardCount" min="0" max="100">
+                  </div>
+                </div>
+
+                <div class="total-questions-info">
+                  <strong>Tổng số câu hỏi:</strong> {{ getTotalRandomQuestions() }} câu
+                </div>
+              </ng-container>
+
+              <!-- Manual selection info -->
+              <div *ngIf="editQuizSettings.questionSelectionMode === 'MANUAL'" class="manual-info">
+                <p>Với chế độ chọn thủ công, bạn cần quay lại trang Section để cấu hình và chọn câu hỏi cụ thể.</p>
+                <p><strong>Số câu hỏi hiện tại:</strong> {{ quizQuestionsCount() }} câu</p>
+              </div>
+            </div>
+
+            <!-- Display Settings - Editable -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Hiển thị
+              </h4>
+              <div class="form-grid form-grid--checkboxes">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.shuffleQuestions">
+                  <span>Đảo thứ tự câu hỏi</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.shuffleAnswers">
+                  <span>Đảo thứ tự đáp án</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.oneQuestionPerPage">
+                  <span>Mỗi trang 1 câu</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.allowBackNavigation">
+                  <span>Cho phép quay lại câu trước</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.showQuestionNumber">
+                  <span>Hiển thị số thứ tự câu</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.showPointsPerQuestion">
+                  <span>Hiển thị điểm mỗi câu</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Review Settings - Editable -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                Xem lại & Kết quả
+              </h4>
+              <div class="form-grid form-grid--checkboxes">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.showScoreImmediately">
+                  <span>Hiển thị điểm ngay sau khi nộp</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.showCorrectAnswers">
+                  <span>Hiển thị đáp án đúng</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.allowReview">
+                  <span>Cho phép xem lại bài làm</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Security Settings - Editable -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Bảo mật
+              </h4>
+              <div class="form-grid form-grid--checkboxes">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.requireFullscreen">
+                  <span>Yêu cầu toàn màn hình</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.detectTabSwitch">
+                  <span>Phát hiện chuyển tab</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editQuizSettings.requireWebcam">
+                  <span>Yêu cầu webcam</span>
+                </label>
+              </div>
+              <div class="form-group" *ngIf="editQuizSettings.detectTabSwitch" style="margin-top: 12px;">
+                <label class="form-label">Số lần chuyển tab tối đa</label>
+                <input type="number" class="form-input form-input--small" [(ngModel)]="editQuizSettings.maxTabSwitchCount" min="1" max="10">
+              </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="form-actions">
+              <button class="btn btn--primary" (click)="saveModuleSettings()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                Lưu cấu hình
+              </button>
+            </div>
+          </ng-container>
+
+          <!-- ===== READ-ONLY MODE ===== -->
+          <ng-container *ngIf="!editModeService.editMode()">
+            <!-- Time & Attempt Settings -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Thời gian & Số lượt làm
+              </h4>
+              <div class="config-grid">
+                <div class="config-item">
+                  <span class="config-label">Thời gian làm bài:</span>
+                  <span class="config-value">{{ quizSettings()?.durationMinutes || 0 }} phút</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">Số lượt làm tối đa:</span>
+                  <span class="config-value">{{ quizSettings()?.maxAttempts || 1 }} lượt</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">Phương thức tính điểm:</span>
+                  <span class="config-value">{{ getGradingMethodLabel(quizSettings()?.gradingMethod) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Question Selection -->
+            <div class="config-section">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Câu hỏi
+              </h4>
+              <div class="config-grid">
+                <div class="config-item">
+                  <span class="config-label">Chế độ chọn câu hỏi:</span>
+                  <span class="config-value">{{ getQuestionModeLabel(quizSettings()?.questionSelectionMode) }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-label">Số câu trong đề:</span>
+                  <span class="config-value">{{ quizQuestionsCount() }} câu</span>
+                </div>
+                <ng-container *ngIf="quizSettings()?.randomConfig as rc">
+                  <div class="config-item" *ngIf="rc.easyCount || rc.mediumCount || rc.hardCount">
+                    <span class="config-label">Phân bố độ khó:</span>
+                    <span class="config-value">
+                      Dễ: {{ rc.easyCount || 0 }}, TB: {{ rc.mediumCount || 0 }}, Khó: {{ rc.hardCount || 0 }}
+                    </span>
+                  </div>
+                </ng-container>
+              </div>
+            </div>
+
+          <!-- Display Settings -->
+          <div class="config-section">
+            <h4 class="config-section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Hiển thị
+            </h4>
+            <div class="config-grid config-grid--checkboxes">
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.shuffleQuestions">
+                <svg *ngIf="quizSettings()?.shuffleQuestions" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.shuffleQuestions" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Đảo thứ tự câu hỏi</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.shuffleAnswers">
+                <svg *ngIf="quizSettings()?.shuffleAnswers" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.shuffleAnswers" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Đảo thứ tự đáp án</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.oneQuestionPerPage">
+                <svg *ngIf="quizSettings()?.oneQuestionPerPage" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.oneQuestionPerPage" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Mỗi trang 1 câu</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.allowBackNavigation">
+                <svg *ngIf="quizSettings()?.allowBackNavigation" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.allowBackNavigation" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Cho phép quay lại</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.showQuestionNumber">
+                <svg *ngIf="quizSettings()?.showQuestionNumber" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.showQuestionNumber" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Hiển thị số câu</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.showPointsPerQuestion">
+                <svg *ngIf="quizSettings()?.showPointsPerQuestion" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.showPointsPerQuestion" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Hiển thị điểm mỗi câu</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Review Settings -->
+          <div class="config-section">
+            <h4 class="config-section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              Xem lại & Kết quả
+            </h4>
+            <div class="config-grid config-grid--checkboxes">
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.showScoreImmediately">
+                <svg *ngIf="quizSettings()?.showScoreImmediately" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.showScoreImmediately" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Hiện điểm ngay</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.showCorrectAnswers">
+                <svg *ngIf="quizSettings()?.showCorrectAnswers" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.showCorrectAnswers" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Hiện đáp án đúng</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.allowReview">
+                <svg *ngIf="quizSettings()?.allowReview" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.allowReview" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Cho phép xem lại</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security Settings -->
+          <div class="config-section" *ngIf="quizSettings()?.requireFullscreen || quizSettings()?.detectTabSwitch || quizSettings()?.requireWebcam">
+            <h4 class="config-section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              Bảo mật
+            </h4>
+            <div class="config-grid config-grid--checkboxes">
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.requireFullscreen">
+                <svg *ngIf="quizSettings()?.requireFullscreen" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.requireFullscreen" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Yêu cầu toàn màn hình</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.detectTabSwitch">
+                <svg *ngIf="quizSettings()?.detectTabSwitch" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.detectTabSwitch" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Phát hiện chuyển tab (tối đa {{ quizSettings()?.maxTabSwitchCount || 3 }} lần)</span>
+              </div>
+              <div class="config-checkbox-item" [class.active]="quizSettings()?.requireWebcam">
+                <svg *ngIf="quizSettings()?.requireWebcam" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <svg *ngIf="!quizSettings()?.requireWebcam" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Yêu cầu webcam</span>
+              </div>
+            </div>
+          </div>
+          </ng-container>
+
+          <!-- Action Buttons (only in read-only mode) -->
+          <div class="quiz-actions" *ngIf="!editModeService.editMode()">
+            <button class="btn btn--success btn--large" (click)="startQuiz()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Bắt đầu làm bài
+            </button>
+            <button class="btn btn--outline" (click)="previewQuiz()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Xem trước đề thi
+            </button>
+          </div>
+        </div>
+      </app-card>
+
       <!-- Submissions Section (for QUIZ/ASSIGNMENT) -->
-      <app-card *ngIf="isGradableModule()" variant="default" class="submissions-card">
+      <app-card *ngIf="isGradableModule() && activeTab() === 'submissions'" variant="default" class="submissions-card">
         <div class="submissions-header">
           <h3 class="card-title">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -258,13 +791,19 @@
         <div class="submissions-filter">
           <div class="filter-tabs">
             <button class="filter-tab" [class.active]="filterStatus() === 'all'" (click)="setFilter('all')">
-              Tất cả
+              Tất cả ({{ submissionStats.total }})
+            </button>
+            <button class="filter-tab" *ngIf="module()?.type === 'ASSIGNMENT'" [class.active]="filterStatus() === 'SUBMITTED'" (click)="setFilter('SUBMITTED')">
+              Chờ chấm ({{ submissionStats.pending }})
             </button>
             <button class="filter-tab" [class.active]="filterStatus() === 'GRADED'" (click)="setFilter('GRADED')">
-              Đã chấm
+              Đã chấm ({{ submissionStats.graded }})
+            </button>
+            <button class="filter-tab" *ngIf="module()?.type === 'ASSIGNMENT'" [class.active]="filterStatus() === 'LATE'" (click)="setFilter('LATE')">
+              Nộp trễ
             </button>
             <button class="filter-tab" [class.active]="filterStatus() === 'NOT_SUBMITTED'" (click)="setFilter('NOT_SUBMITTED')">
-              Chưa có điểm
+              Chưa nộp ({{ submissionStats.notSubmitted }})
             </button>
           </div>
         </div>
@@ -286,6 +825,13 @@
                   </svg>
                 </th>
                 <th class="col-code">MSSV</th>
+                <th class="col-file" *ngIf="module()?.type === 'ASSIGNMENT'">File nộp</th>
+                <th class="col-submitted" *ngIf="module()?.type === 'ASSIGNMENT'" (click)="toggleSort('date')">
+                  Thời gian nộp
+                  <svg *ngIf="sortBy() === 'date'" class="sort-icon" [class.desc]="sortDirection() === 'desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </th>
                 <th class="col-score sortable" (click)="toggleSort('score')">
                   Điểm
                   <svg *ngIf="sortBy() === 'score'" class="sort-icon" [class.desc]="sortDirection() === 'desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -315,6 +861,32 @@
                   </div>
                 </td>
                 <td class="col-code">{{ submission.studentCode }}</td>
+                
+                <!-- File nộp (chỉ cho ASSIGNMENT) -->
+                <td class="col-file" *ngIf="module()?.type === 'ASSIGNMENT'">
+                  <div *ngIf="submission.fileUrl" class="file-info">
+                    <a [href]="submission.fileUrl" target="_blank" class="file-link" [title]="submission.fileName">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                      <span class="file-name">{{ submission.fileName || 'Tải xuống' }}</span>
+                    </a>
+                    <span *ngIf="submission.attemptNumber && submission.attemptNumber > 1" class="attempt-badge" title="Lần nộp thứ {{ submission.attemptNumber }}">
+                      #{{ submission.attemptNumber }}
+                    </span>
+                  </div>
+                  <span *ngIf="!submission.fileUrl" class="no-file">-</span>
+                </td>
+
+                <!-- Thời gian nộp (chỉ cho ASSIGNMENT) -->
+                <td class="col-submitted" *ngIf="module()?.type === 'ASSIGNMENT'">
+                  <div *ngIf="submission.submittedAt" class="submitted-time">
+                    <span class="submitted-date">{{ formatDateTime(submission.submittedAt) }}</span>
+                    <span *ngIf="submission.isLate" class="late-badge">Trễ hạn</span>
+                  </div>
+                  <span *ngIf="!submission.submittedAt" class="not-submitted">Chưa nộp</span>
+                </td>
                 
                 <!-- Inline editable score -->
                 <td class="col-score">

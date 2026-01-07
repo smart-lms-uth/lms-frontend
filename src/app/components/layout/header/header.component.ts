@@ -66,6 +66,18 @@ import { EditModeService } from '../../../services/edit-mode.service';
           <span class="header__icon-badge" *ngIf="messageCount > 0">{{ messageCount }}</span>
         </button>
 
+        <!-- AI Chat -->
+        <a routerLink="/ai-chat" class="header__icon-btn header__ai-btn" title="Chat với AI">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 8V4H8"/>
+            <rect width="16" height="12" x="4" y="8" rx="2"/>
+            <path d="M2 14h2"/>
+            <path d="M20 14h2"/>
+            <path d="M15 13v2"/>
+            <path d="M9 13v2"/>
+          </svg>
+        </a>
+
         <!-- Activity History Toggle -->
         <div class="header__activity-wrapper">
           <button 
@@ -117,6 +129,14 @@ import { EditModeService } from '../../../services/edit-mode.service';
                 <circle cx="12" cy="7" r="4"/>
               </svg>
               <span>Hồ sơ cá nhân</span>
+            </a>
+            <a *ngIf="isTeacher" routerLink="/teacher/question-bank" class="header__user-dropdown-item">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <span>Ngân hàng câu hỏi</span>
             </a>
             <a routerLink="/settings" class="header__user-dropdown-item">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -364,6 +384,27 @@ import { EditModeService } from '../../../services/edit-mode.service';
       background: color-mix(in srgb, var(--primary-500) 5%, transparent);
       border-color: color-mix(in srgb, var(--primary-500) 20%, transparent);
       color: var(--primary-600);
+    }
+
+    .header__icon-btn--active {
+      background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+      border-color: color-mix(in srgb, var(--primary-500) 30%, transparent);
+      color: var(--primary-600);
+    }
+
+    /* AI Chat Button */
+    .header__ai-btn {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(79, 70, 229, 0.1));
+      border-color: rgba(124, 58, 237, 0.2);
+      color: #7c3aed;
+      text-decoration: none;
+    }
+
+    .header__ai-btn:hover {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(79, 70, 229, 0.15));
+      border-color: rgba(124, 58, 237, 0.4);
+      color: #6d28d9;
+      transform: scale(1.05);
     }
 
     .header__icon-badge {

@@ -4,6 +4,7 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService, User } from '../../services/auth.service';
 import { CourseService, Course, Section, Module } from '../../services/course.service';
 import { ProgressService } from '../../services/progress.service';
+import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
 
@@ -38,6 +39,7 @@ export class StudentSectionDetailComponent implements OnInit {
     private authService: AuthService,
     private courseService: CourseService,
     private progressService: ProgressService,
+    private activityService: ActivityService,
     private router: Router,
     private route: ActivatedRoute
   ) {
@@ -93,6 +95,13 @@ export class StudentSectionDetailComponent implements OnInit {
           this.sectionIndex.set(index + 1);
           this.expandedSections.set([currentSection.id]);
           this.section.set(currentSection);
+          
+          // Track section view activity
+          this.activityService.trackSectionView(
+            this.sectionId()!.toString(),
+            currentSection.title,
+            this.courseId()!.toString()
+          );
         }
       }
     } catch (error) {

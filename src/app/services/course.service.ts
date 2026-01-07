@@ -11,6 +11,79 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+// ==================== QUIZ SETTINGS ====================
+
+/**
+ * Cách tính điểm khi làm nhiều lần
+ */
+export type GradingMethod = 'HIGHEST' | 'LATEST' | 'AVERAGE' | 'FIRST';
+
+/**
+ * Cách chọn câu hỏi cho bài thi
+ */
+export type QuestionSelectionMode = 'MANUAL' | 'RANDOM' | 'MIXED';
+
+/**
+ * Cách phát đề cho sinh viên
+ */
+export type ExamDistributionMode = 'SAME_FOR_ALL' | 'UNIQUE_PER_STUDENT';
+
+/**
+ * Cấu hình lấy câu hỏi ngẫu nhiên
+ */
+export interface RandomQuestionConfig {
+  fromChapterIds?: number[];
+  easyCount?: number;
+  mediumCount?: number;
+  hardCount?: number;
+  singleChoiceCount?: number;
+  multiChoiceCount?: number;
+  fillCount?: number;
+}
+
+/**
+ * Cấu hình đầy đủ cho bài trắc nghiệm
+ */
+export interface QuizSettings {
+  // === Cấu hình thời gian ===
+  openDate?: string;
+  closeDate?: string;
+  durationMinutes?: number;
+
+  // === Cấu hình làm bài ===
+  maxAttempts?: number;
+  gradingMethod?: GradingMethod;
+
+  // === Cấu hình chọn câu hỏi ===
+  questionSelectionMode?: QuestionSelectionMode;
+  totalQuestions?: number;
+  randomConfig?: RandomQuestionConfig;
+  selectedQuestionIds?: number[];  // Danh sách ID câu hỏi được chọn thủ công (MANUAL/MIXED)
+  distributionMode?: ExamDistributionMode;
+
+  // === Cấu hình hiển thị ===
+  shuffleQuestions?: boolean;
+  shuffleAnswers?: boolean;
+  oneQuestionPerPage?: boolean;
+  allowBackNavigation?: boolean;
+  showQuestionNumber?: boolean;
+  showPointsPerQuestion?: boolean;
+
+  // === Cấu hình xem lại ===
+  showCorrectAnswers?: boolean;
+  reviewAvailableFrom?: string;
+  allowReview?: boolean;
+  showScoreImmediately?: boolean;
+
+  // === Cấu hình bảo mật ===
+  accessPassword?: string;
+  allowedIpRanges?: string[];
+  requireFullscreen?: boolean;
+  detectTabSwitch?: boolean;
+  maxTabSwitchCount?: number;
+  requireWebcam?: boolean;
+}
+
 // Semester DTOs
 export interface Semester {
   id: number;
@@ -117,6 +190,8 @@ export interface Module {
   scoreWeight?: number;
   gradeType?: 'PROCESS' | 'FINAL';
   isShowInGradeTable?: boolean;
+  // Quiz/Assignment settings
+  settings?: QuizSettings;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -141,6 +216,54 @@ export interface CreateModuleRequest {
   scoreWeight?: number;
   gradeType?: 'PROCESS' | 'FINAL';
   isShowInGradeTable?: boolean;
+  // Settings JSON for quiz/assignment config
+  settings?: QuizSettings;
+}
+
+// ============ Copy Content DTOs ============
+
+/**
+ * Thông tin course có thể copy
+ */
+export interface CourseForCopy {
+  id: number;
+  courseCode: string;
+  semesterName: string;
+  status: string;
+  sectionCount: number;
+  moduleCount: number;
+}
+
+/**
+ * Request copy nội dung
+ */
+export interface CopyContentRequest {
+  sourceCourseId: number;
+  sectionIds?: number[];  // Nếu null thì copy tất cả
+  copyQuizQuestions?: boolean;  // Default: true
+  keepVisibility?: boolean;  // Default: false
+  clearExisting?: boolean;  // Default: false
+}
+
+/**
+ * Response sau khi copy
+ */
+export interface CopyContentResponse {
+  targetCourseId: number;
+  sourceCourseId: number;
+  sectionsCopied: number;
+  modulesCopied: number;
+  quizQuestionsCopied: number;
+  sectionIdMapping: { [key: number]: number };
+  moduleIdMapping: { [key: number]: number };
+  copiedSections: CopiedSectionInfo[];
+}
+
+export interface CopiedSectionInfo {
+  originalId: number;
+  newId: number;
+  title: string;
+  moduleCount: number;
 }
 
 // Course base URL (no /v1 prefix)
@@ -306,6 +429,27 @@ export class CourseService {
 
   reorderModules(sectionId: number, moduleIds: number[]): Observable<Module[]> {
     return this.http.post<Module[]>(`${COURSE_API}/v1/sections/${sectionId}/modules/reorder`, moduleIds);
+  }
+
+  // ============ Copy Content APIs ============
+
+  /**
+   * Lấy danh sách các lớp có thể copy nội dung từ đó
+   */
+  getCopyableCourses(courseId: number, instructorId: number): Observable<CourseForCopy[]> {
+    return this.http.get<ApiResponse<CourseForCopy[]>>(
+      `${COURSE_API}/courses/${courseId}/copyable-courses?instructorId=${instructorId}`
+    ).pipe(map(res => res.data));
+  }
+
+  /**
+   * Copy sections và modules từ lớp nguồn sang lớp đích
+   */
+  copyContent(targetCourseId: number, request: CopyContentRequest): Observable<CopyContentResponse> {
+    return this.http.post<ApiResponse<CopyContentResponse>>(
+      `${COURSE_API}/courses/${targetCourseId}/copy-content`,
+      request
+    ).pipe(map(res => res.data));
   }
 
   // ============ Helper Methods ============

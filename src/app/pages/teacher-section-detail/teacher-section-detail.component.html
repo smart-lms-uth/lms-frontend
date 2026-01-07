@@ -282,7 +282,7 @@
 
     <!-- Add/Edit Module Modal -->
     <div class="modal-overlay" *ngIf="showModuleModal()" (click)="closeModuleModal()">
-      <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-content" [class.modal-content--large]="isQuizType()" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <h3 class="modal-title">{{ editingModule() ? 'Chỉnh sửa Module' : 'Thêm Module mới' }}</h3>
           <button class="modal-close" (click)="closeModuleModal()">
@@ -293,6 +293,7 @@
           </button>
         </div>
         <div class="modal-body">
+          <!-- Basic Info -->
           <div class="form-group">
             <label class="form-label">Tiêu đề <span class="required">*</span></label>
             <input type="text" class="form-input" [(ngModel)]="newModuleTitle" placeholder="Nhập tiêu đề module">
@@ -312,7 +313,7 @@
               <option value="FORUM">Thảo luận</option>
             </select>
           </div>
-          <div class="form-group">
+          <div class="form-group" *ngIf="!isQuizType()">
             <label class="form-label">URL nội dung</label>
             <input type="text" class="form-input" [(ngModel)]="newModuleContentUrl" placeholder="Nhập URL video/tài liệu (tùy chọn)">
           </div>
@@ -354,6 +355,391 @@
             </div>
           </div>
 
+          <!-- ==================== QUIZ SETTINGS ==================== -->
+          <div class="quiz-settings" *ngIf="isQuizType()">
+            <div class="quiz-settings-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Cấu hình bài trắc nghiệm</span>
+            </div>
+
+            <!-- Quiz Settings Tabs -->
+            <div class="quiz-tabs">
+              <button class="quiz-tab" [class.quiz-tab--active]="activeQuizTab === 'time'" (click)="setQuizTab('time')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                Thời gian
+              </button>
+              <button class="quiz-tab" [class.quiz-tab--active]="activeQuizTab === 'attempt'" (click)="setQuizTab('attempt')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                Làm bài
+              </button>
+              <button class="quiz-tab" [class.quiz-tab--active]="activeQuizTab === 'questions'" (click)="setQuizTab('questions')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+                Câu hỏi
+              </button>
+              <button class="quiz-tab" [class.quiz-tab--active]="activeQuizTab === 'display'" (click)="setQuizTab('display')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                Hiển thị
+              </button>
+              <button class="quiz-tab" [class.quiz-tab--active]="activeQuizTab === 'review'" (click)="setQuizTab('review')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                Xem lại
+              </button>
+              <button class="quiz-tab" [class.quiz-tab--active]="activeQuizTab === 'security'" (click)="setQuizTab('security')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                Bảo mật
+              </button>
+            </div>
+
+            <!-- Tab Content: Time -->
+            <div class="quiz-tab-content" *ngIf="activeQuizTab === 'time'">
+              <div class="form-row">
+                <div class="form-group form-group--half">
+                  <label class="form-label">Ngày mở</label>
+                  <input type="datetime-local" class="form-input" [(ngModel)]="quizSettings.openDate">
+                </div>
+                <div class="form-group form-group--half">
+                  <label class="form-label">Ngày đóng</label>
+                  <input type="datetime-local" class="form-input" [(ngModel)]="quizSettings.closeDate">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Thời gian làm bài (phút)</label>
+                <input type="number" class="form-input" [(ngModel)]="quizSettings.durationMinutes" placeholder="60" min="1" max="480">
+                <span class="form-hint">Thời gian tối đa sinh viên có thể làm bài</span>
+              </div>
+            </div>
+
+            <!-- Tab Content: Attempt -->
+            <div class="quiz-tab-content" *ngIf="activeQuizTab === 'attempt'">
+              <div class="form-group">
+                <label class="form-label">Số lần làm bài tối đa</label>
+                <input type="number" class="form-input" [(ngModel)]="quizSettings.maxAttempts" placeholder="1" min="1" max="99">
+                <span class="form-hint">Số lần sinh viên được phép làm bài</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cách tính điểm</label>
+                <select class="form-input form-select" [(ngModel)]="quizSettings.gradingMethod">
+                  <option value="HIGHEST">Điểm cao nhất</option>
+                  <option value="LATEST">Điểm lần cuối</option>
+                  <option value="AVERAGE">Trung bình các lần</option>
+                  <option value="FIRST">Điểm lần đầu</option>
+                </select>
+                <span class="form-hint">Cách tính điểm khi sinh viên làm nhiều lần</span>
+              </div>
+            </div>
+
+            <!-- Tab Content: Questions -->
+            <div class="quiz-tab-content" *ngIf="activeQuizTab === 'questions'">
+              <!-- Selection Mode -->
+              <div class="form-group">
+                <label class="form-label">Cách chọn câu hỏi</label>
+                <select class="form-input form-select" [(ngModel)]="quizSettings.questionSelectionMode">
+                  <option value="MANUAL">Chọn thủ công từng câu</option>
+                  <option value="RANDOM">Ngẫu nhiên từ ngân hàng</option>
+                  <option value="MIXED">Kết hợp (bắt buộc + ngẫu nhiên)</option>
+                </select>
+              </div>
+
+              <!-- Loading state -->
+              <div *ngIf="chaptersLoading() || questionsLoading()" class="question-loading">
+                <div class="spinner-small"></div>
+                <span>Đang tải danh sách câu hỏi...</span>
+              </div>
+
+              <!-- RANDOM MODE: Chapter selection + Difficulty counts -->
+              <ng-container *ngIf="quizSettings.questionSelectionMode === 'RANDOM' && !chaptersLoading()">
+                <div class="form-section">
+                  <h4 class="form-section-title">Chọn chương (có thể chọn nhiều)</h4>
+                  <div class="chapter-select-grid">
+                    <label *ngFor="let chapter of availableChapters()" class="chapter-checkbox-item">
+                      <input type="checkbox" 
+                             [checked]="isChapterSelected(chapter.id)"
+                             (change)="toggleChapterSelection(chapter.id)">
+                      <span class="chapter-name">{{ chapter.name }}</span>
+                      <span class="chapter-count">({{ chapter.questionCount || 0 }} câu)</span>
+                    </label>
+                  </div>
+                  <div class="form-hint" *ngIf="selectedChapterIds.length === 0">
+                    <em>Không chọn chương = lấy từ toàn bộ ngân hàng câu hỏi</em>
+                  </div>
+                </div>
+
+                <div class="form-section">
+                  <h4 class="form-section-title">Số lượng câu theo độ khó</h4>
+                  <div class="difficulty-inputs">
+                    <div class="difficulty-input-group">
+                      <label class="form-label form-label--small">Câu dễ</label>
+                      <input type="number" class="form-input form-input--small" 
+                             [(ngModel)]="quizSettings.randomConfig!.easyCount" 
+                             placeholder="0" min="0">
+                    </div>
+                    <div class="difficulty-input-group">
+                      <label class="form-label form-label--small">Câu trung bình</label>
+                      <input type="number" class="form-input form-input--small" 
+                             [(ngModel)]="quizSettings.randomConfig!.mediumCount" 
+                             placeholder="0" min="0">
+                    </div>
+                    <div class="difficulty-input-group">
+                      <label class="form-label form-label--small">Câu khó</label>
+                      <input type="number" class="form-input form-input--small" 
+                             [(ngModel)]="quizSettings.randomConfig!.hardCount" 
+                             placeholder="0" min="0">
+                    </div>
+                  </div>
+                  <div class="total-count-display">
+                    Tổng số câu: <strong>{{ getRandomTotalCount() }}</strong>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- MANUAL MODE: Question list by chapter -->
+              <ng-container *ngIf="quizSettings.questionSelectionMode === 'MANUAL' && !questionsLoading()">
+                <div class="form-section">
+                  <h4 class="form-section-title">
+                    Chọn câu hỏi 
+                    <span class="selected-count">(Đã chọn: {{ selectedQuestionIds.length }})</span>
+                  </h4>
+                  
+                  <!-- Questions without chapter -->
+                  <div *ngIf="getQuestionsForChapter(0).length > 0" class="chapter-question-group">
+                    <div class="chapter-group-header">
+                      <span class="chapter-group-title">Câu hỏi chung (không thuộc chương)</span>
+                      <span class="chapter-question-count">{{ getQuestionsForChapter(0).length }} câu</span>
+                    </div>
+                    <div class="question-select-list">
+                      <label *ngFor="let q of getQuestionsForChapter(0)" class="question-select-item">
+                        <input type="checkbox" 
+                               [checked]="isQuestionSelected(q.id)"
+                               (change)="toggleQuestionSelection(q.id)">
+                        <div class="question-info">
+                          <span class="question-content" [innerHTML]="q.content"></span>
+                          <div class="question-meta">
+                            <span class="badge" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelDisplayName(q.level) }}</span>
+                            <span class="question-type">{{ q.type }}</span>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Questions by chapter -->
+                  <div *ngFor="let chapter of availableChapters()" class="chapter-question-group">
+                    <div class="chapter-group-header" *ngIf="getQuestionsForChapter(chapter.id).length > 0">
+                      <span class="chapter-group-title">{{ chapter.name }}</span>
+                      <span class="chapter-question-count">{{ getQuestionsForChapter(chapter.id).length }} câu</span>
+                    </div>
+                    <div class="question-select-list" *ngIf="getQuestionsForChapter(chapter.id).length > 0">
+                      <label *ngFor="let q of getQuestionsForChapter(chapter.id)" class="question-select-item">
+                        <input type="checkbox" 
+                               [checked]="isQuestionSelected(q.id)"
+                               (change)="toggleQuestionSelection(q.id)">
+                        <div class="question-info">
+                          <span class="question-content" [innerHTML]="q.content"></span>
+                          <div class="question-meta">
+                            <span class="badge" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelDisplayName(q.level) }}</span>
+                            <span class="question-type">{{ q.type }}</span>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div *ngIf="availableQuestions().length === 0" class="empty-questions">
+                    <p>Chưa có câu hỏi trong ngân hàng đề.</p>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- MIXED MODE: Required questions + Random config -->
+              <ng-container *ngIf="quizSettings.questionSelectionMode === 'MIXED' && !questionsLoading()">
+                <!-- Required Questions Section -->
+                <div class="form-section">
+                  <h4 class="form-section-title">
+                    Câu hỏi bắt buộc 
+                    <span class="selected-count">(Đã chọn: {{ selectedQuestionIds.length }})</span>
+                  </h4>
+                  <p class="form-hint">Những câu này sẽ luôn xuất hiện trong đề thi</p>
+                  
+                  <!-- Questions without chapter -->
+                  <div *ngIf="getQuestionsForChapter(0).length > 0" class="chapter-question-group">
+                    <div class="chapter-group-header">
+                      <span class="chapter-group-title">Câu hỏi chung</span>
+                    </div>
+                    <div class="question-select-list question-select-list--compact">
+                      <label *ngFor="let q of getQuestionsForChapter(0)" class="question-select-item question-select-item--compact">
+                        <input type="checkbox" 
+                               [checked]="isQuestionSelected(q.id)"
+                               (change)="toggleQuestionSelection(q.id)">
+                        <span class="question-content-short" [innerHTML]="q.content"></span>
+                        <span class="badge badge--small" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelDisplayName(q.level) }}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Questions by chapter -->
+                  <div *ngFor="let chapter of availableChapters()" class="chapter-question-group">
+                    <div class="chapter-group-header" *ngIf="getQuestionsForChapter(chapter.id).length > 0">
+                      <span class="chapter-group-title">{{ chapter.name }}</span>
+                    </div>
+                    <div class="question-select-list question-select-list--compact" *ngIf="getQuestionsForChapter(chapter.id).length > 0">
+                      <label *ngFor="let q of getQuestionsForChapter(chapter.id)" class="question-select-item question-select-item--compact">
+                        <input type="checkbox" 
+                               [checked]="isQuestionSelected(q.id)"
+                               (change)="toggleQuestionSelection(q.id)">
+                        <span class="question-content-short" [innerHTML]="q.content"></span>
+                        <span class="badge badge--small" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelDisplayName(q.level) }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Random Fill Section -->
+                <div class="form-section form-section--highlight">
+                  <h4 class="form-section-title">Câu hỏi ngẫu nhiên bổ sung</h4>
+                  <p class="form-hint">Số câu còn lại sẽ được lấy ngẫu nhiên từ ngân hàng</p>
+                  
+                  <div class="difficulty-inputs">
+                    <div class="difficulty-input-group">
+                      <label class="form-label form-label--small">Dễ</label>
+                      <input type="number" class="form-input form-input--small" 
+                             [(ngModel)]="quizSettings.randomConfig!.easyCount" 
+                             placeholder="0" min="0">
+                    </div>
+                    <div class="difficulty-input-group">
+                      <label class="form-label form-label--small">TB</label>
+                      <input type="number" class="form-input form-input--small" 
+                             [(ngModel)]="quizSettings.randomConfig!.mediumCount" 
+                             placeholder="0" min="0">
+                    </div>
+                    <div class="difficulty-input-group">
+                      <label class="form-label form-label--small">Khó</label>
+                      <input type="number" class="form-input form-input--small" 
+                             [(ngModel)]="quizSettings.randomConfig!.hardCount" 
+                             placeholder="0" min="0">
+                    </div>
+                  </div>
+                  <div class="total-count-display">
+                    Tổng đề: <strong>{{ selectedQuestionIds.length }}</strong> bắt buộc + 
+                    <strong>{{ getRandomTotalCount() }}</strong> ngẫu nhiên = 
+                    <strong>{{ selectedQuestionIds.length + getRandomTotalCount() }}</strong> câu
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Distribution Mode (for all modes) -->
+              <div class="form-group" *ngIf="!chaptersLoading()">
+                <label class="form-label">Cách phát đề</label>
+                <select class="form-input form-select" [(ngModel)]="quizSettings.distributionMode">
+                  <option value="SAME_FOR_ALL">Cùng bộ đề cho tất cả</option>
+                  <option value="UNIQUE_PER_STUDENT">Mỗi sinh viên 1 bộ đề khác</option>
+                </select>
+                <span class="form-hint">Chọn cách phát đề cho sinh viên khi làm bài</span>
+              </div>
+            </div>
+
+            <!-- Tab Content: Display -->
+            <div class="quiz-tab-content" *ngIf="activeQuizTab === 'display'">
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.shuffleQuestions" class="checkbox-input">
+                  <span>Đảo thứ tự câu hỏi</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.shuffleAnswers" class="checkbox-input">
+                  <span>Đảo thứ tự đáp án</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.oneQuestionPerPage" class="checkbox-input">
+                  <span>Hiển thị 1 câu/trang</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.allowBackNavigation" class="checkbox-input">
+                  <span>Cho phép quay lại câu trước</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.showQuestionNumber" class="checkbox-input">
+                  <span>Hiển thị số thứ tự câu hỏi</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.showPointsPerQuestion" class="checkbox-input">
+                  <span>Hiển thị điểm từng câu</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Tab Content: Review -->
+            <div class="quiz-tab-content" *ngIf="activeQuizTab === 'review'">
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.showScoreImmediately" class="checkbox-input">
+                  <span>Hiển thị điểm ngay sau nộp bài</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.allowReview" class="checkbox-input">
+                  <span>Cho phép xem lại bài làm</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.showCorrectAnswers" class="checkbox-input">
+                  <span>Hiển thị đáp án đúng sau nộp</span>
+                </label>
+              </div>
+              <div class="form-group" *ngIf="quizSettings.showCorrectAnswers">
+                <label class="form-label">Thời điểm được xem đáp án</label>
+                <input type="datetime-local" class="form-input" [(ngModel)]="quizSettings.reviewAvailableFrom">
+                <span class="form-hint">Để trống = xem ngay sau khi nộp</span>
+              </div>
+            </div>
+
+            <!-- Tab Content: Security -->
+            <div class="quiz-tab-content" *ngIf="activeQuizTab === 'security'">
+              <div class="form-group">
+                <label class="form-label">Mật khẩu truy cập</label>
+                <input type="text" class="form-input" [(ngModel)]="quizSettings.accessPassword" placeholder="Để trống nếu không cần mật khẩu">
+                <span class="form-hint">Sinh viên phải nhập mật khẩu để vào làm bài</span>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.requireFullscreen" class="checkbox-input">
+                  <span>Yêu cầu toàn màn hình</span>
+                </label>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.detectTabSwitch" class="checkbox-input">
+                  <span>Phát hiện chuyển tab</span>
+                </label>
+              </div>
+              <div class="form-group" *ngIf="quizSettings.detectTabSwitch">
+                <label class="form-label">Số lần chuyển tab tối đa</label>
+                <input type="number" class="form-input" [(ngModel)]="quizSettings.maxTabSwitchCount" placeholder="3" min="1" max="10">
+                <span class="form-hint">Vượt quá sẽ tự động nộp bài</span>
+              </div>
+              <div class="form-group form-group--inline">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="quizSettings.requireWebcam" class="checkbox-input">
+                  <span>Yêu cầu bật webcam (Proctoring)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
           <div class="form-group form-group--inline">
             <label class="checkbox-label">
               <input type="checkbox" [(ngModel)]="newModuleVisible" class="checkbox-input">
@@ -366,6 +752,176 @@
           <button class="btn btn--primary btn--create" (click)="saveModule()" [disabled]="!newModuleTitle.trim()">
             {{ editingModule() ? 'Cập nhật' : 'Tạo module' }}
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Preview Modal -->
+  <div class="quiz-preview-overlay" *ngIf="showQuizPreview()" (click)="closeQuizPreview()">
+    <div class="quiz-preview-container" (click)="$event.stopPropagation()">
+      <!-- Header -->
+      <div class="quiz-preview-header">
+        <div class="quiz-preview-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <path d="M12 17h.01"></path>
+          </svg>
+          <span>{{ previewModule()?.title }} - Xem trước</span>
+        </div>
+        <button class="quiz-preview-close" (click)="closeQuizPreview()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div *ngIf="previewLoading()" class="quiz-preview-loading">
+        <div class="spinner"></div>
+        <p>Đang tải câu hỏi...</p>
+      </div>
+
+      <!-- No Questions -->
+      <div *ngIf="!previewLoading() && previewQuestions().length === 0" class="quiz-preview-empty">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <path d="M12 17h.01"></path>
+        </svg>
+        <h3>Chưa có câu hỏi</h3>
+        <p>Quiz này chưa được cấu hình câu hỏi. Vui lòng bật Edit Mode để thêm câu hỏi.</p>
+      </div>
+
+      <!-- Quiz Content -->
+      <div *ngIf="!previewLoading() && previewQuestions().length > 0" class="quiz-preview-content">
+        <!-- Question Navigation (sidebar) -->
+        <div class="quiz-nav-sidebar">
+          <div class="quiz-nav-title">Câu hỏi</div>
+          <div class="quiz-nav-grid">
+            <button *ngFor="let qq of previewQuestions(); let i = index"
+                    class="quiz-nav-item"
+                    [class.active]="previewCurrentQuestion() === i"
+                    [class.answered]="previewAnswers.has(qq.question.id)"
+                    [class.correct]="previewShowResult() && isPreviewAnswerCorrect(qq.question.id, previewAnswers.get(qq.question.id)?.selectedOptionId || -1) === true"
+                    [class.incorrect]="previewShowResult() && previewAnswers.has(qq.question.id) && isPreviewAnswerCorrect(qq.question.id, previewAnswers.get(qq.question.id)?.selectedOptionId || -1) === false"
+                    (click)="goToPreviewQuestion(i)">
+              {{ i + 1 }}
+            </button>
+          </div>
+          
+          <div class="quiz-nav-summary" *ngIf="!previewShowResult()">
+            <span>Đã trả lời: {{ previewAnswers.size }}/{{ previewQuestions().length }}</span>
+          </div>
+
+          <!-- Result Summary -->
+          <div class="quiz-result-summary" *ngIf="previewShowResult()">
+            <div class="result-score">
+              {{ calculatePreviewScore().score }}/{{ calculatePreviewScore().maxScore }}
+            </div>
+            <div class="result-stats">
+              <span class="stat correct">✓ {{ calculatePreviewScore().correct }}</span>
+              <span class="stat incorrect">✗ {{ calculatePreviewScore().total - calculatePreviewScore().correct }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Display -->
+        <div class="quiz-question-area">
+          <ng-container *ngIf="previewQuestions()[previewCurrentQuestion()] as currentQ">
+            <div class="question-header">
+              <span class="question-number">Câu {{ previewCurrentQuestion() + 1 }}</span>
+              <span class="question-points">{{ currentQ.point }} điểm</span>
+              <span class="question-type-badge" [ngClass]="'type-' + currentQ.question.type.toLowerCase()">
+                {{ currentQ.question.type === 'SINGLE' ? 'Một đáp án' : currentQ.question.type === 'MULTI' ? 'Nhiều đáp án' : 'Tự luận' }}
+              </span>
+            </div>
+
+            <div class="question-content" [innerHTML]="sanitizeHtml(currentQ.question.content)"></div>
+
+            <div class="question-image" *ngIf="currentQ.question.imageUrl">
+              <img [src]="currentQ.question.imageUrl" alt="Question image">
+            </div>
+
+            <!-- Options for SINGLE/MULTI -->
+            <div class="question-options" *ngIf="currentQ.question.type !== 'FILL'">
+              <label *ngFor="let option of currentQ.question.options" 
+                     class="option-item"
+                     [class.selected]="isPreviewOptionSelected(currentQ.question.id, option.id)"
+                     [class.correct]="previewShowResult() && option.isCorrect"
+                     [class.incorrect]="previewShowResult() && isPreviewOptionSelected(currentQ.question.id, option.id) && !option.isCorrect"
+                     [class.disabled]="previewShowResult()">
+                <input [type]="currentQ.question.type === 'SINGLE' ? 'radio' : 'checkbox'"
+                       [name]="'q_' + currentQ.question.id"
+                       [checked]="isPreviewOptionSelected(currentQ.question.id, option.id)"
+                       (change)="selectPreviewAnswer(currentQ.question.id, option.id, currentQ.question.type === 'MULTI')"
+                       [disabled]="previewShowResult()">
+                <span class="option-label">{{ option.label }}</span>
+                <span class="option-content" [innerHTML]="sanitizeHtml(option.content)"></span>
+                <span class="option-indicator" *ngIf="previewShowResult()">
+                  <svg *ngIf="option.isCorrect" class="icon-correct" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <svg *ngIf="isPreviewOptionSelected(currentQ.question.id, option.id) && !option.isCorrect" class="icon-incorrect" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </span>
+              </label>
+            </div>
+
+            <!-- Fill Answer -->
+            <div class="question-fill" *ngIf="currentQ.question.type === 'FILL'">
+              <textarea class="fill-input"
+                        [value]="getPreviewFillAnswer(currentQ.question.id)"
+                        (input)="setPreviewFillAnswer(currentQ.question.id, $any($event.target).value)"
+                        placeholder="Nhập câu trả lời của bạn..."
+                        [disabled]="previewShowResult()"
+                        rows="4"></textarea>
+            </div>
+          </ng-container>
+
+          <!-- Navigation Buttons -->
+          <div class="question-nav-buttons">
+            <button class="btn btn--outline" 
+                    [disabled]="previewCurrentQuestion() === 0"
+                    (click)="goToPreviewQuestion(previewCurrentQuestion() - 1)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Câu trước
+            </button>
+            
+            <button *ngIf="previewCurrentQuestion() < previewQuestions().length - 1"
+                    class="btn btn--primary"
+                    (click)="goToPreviewQuestion(previewCurrentQuestion() + 1)">
+              Câu sau
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+
+            <button *ngIf="previewCurrentQuestion() === previewQuestions().length - 1 && !previewShowResult()"
+                    class="btn btn--success"
+                    (click)="submitPreviewQuiz()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Nộp bài (Xem kết quả)
+            </button>
+
+            <button *ngIf="previewShowResult()"
+                    class="btn btn--outline"
+                    (click)="resetPreviewQuiz()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              Làm lại
+            </button>
+          </div>
         </div>
       </div>
     </div>

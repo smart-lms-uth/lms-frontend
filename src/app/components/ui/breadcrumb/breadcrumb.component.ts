@@ -45,18 +45,18 @@ export interface BreadcrumbItem {
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      color: var(--color-text-muted);
+      color: var(--gray-500);
       text-decoration: none;
       transition: color 0.2s;
       white-space: nowrap;
     }
 
     .breadcrumb-item:hover:not(.breadcrumb-item--current) {
-      color: var(--color-primary);
+      color: var(--primary-500);
     }
 
     .breadcrumb-item--current {
-      color: var(--color-text);
+      color: var(--gray-800);
       font-weight: 500;
       pointer-events: none;
     }
@@ -66,7 +66,7 @@ export interface BreadcrumbItem {
     }
 
     .breadcrumb-separator {
-      color: var(--color-border);
+      color: var(--gray-300);
       flex-shrink: 0;
       margin: 0 0.25rem;
     }

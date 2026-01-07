@@ -60,6 +60,25 @@ export interface ActivityResponseItem {
   userAgent: string;
 }
 
+/**
+ * Course-specific activity response with Vietnamese formatted titles
+ */
+export interface CourseActivityItem {
+  id: string;
+  userId: number;
+  activityType: string;
+  action: string;
+  formattedTitle: string;    // Vietnamese formatted title e.g. "Truy cập bài học X vào lúc 10:30"
+  resourceType: string;      // COURSE, SECTION, MODULE, QUIZ, ASSIGNMENT, VIDEO
+  resourceName: string;      // Name of the resource accessed
+  resourceId: number | null; // ID of the resource
+  pageUrl: string;
+  timestamp: string;
+  timestampFormatted: string; // Pre-formatted Vietnamese timestamp
+  durationMs: number;
+  metadata: { [key: string]: any };
+}
+
 export interface ActivityStats {
   totalActivities: number;
   uniqueUsers: number;
@@ -152,9 +171,51 @@ export class ActivityService implements OnDestroy {
   }
 
   /**
+   * Get student activities for a specific course (for instructors)
+   * Returns activities with Vietnamese formatted titles
+   */
+  getCourseStudentActivities(
+    courseId: number,
+    studentId: number,
+    page: number = 0,
+    size: number = 20,
+    activityType?: string
+  ): Observable<ApiResponse<PagedResponse<CourseActivityItem>>> {
+    let url = `${this.API_URL}/activities/course/${courseId}/student/${studentId}?page=${page}&size=${size}`;
+    if (activityType) {
+      url += `&activityType=${activityType}`;
+    }
+    return this.http.get<ApiResponse<PagedResponse<CourseActivityItem>>>(url);
+  }
+
+  /**
+   * Get all student activities for a course (no filter)
+   */
+  getAllCourseStudentActivities(
+    courseId: number,
+    studentId: number,
+    page: number = 0,
+    size: number = 20
+  ): Observable<ApiResponse<PagedResponse<CourseActivityItem>>> {
+    return this.http.get<ApiResponse<PagedResponse<CourseActivityItem>>>(
+      `${this.API_URL}/activities/course/${courseId}/student/${studentId}/all?page=${page}&size=${size}`
+    );
+  }
+
+  /**
+   * Get last access time for all students in a course
+   * Returns a map of studentId -> last access timestamp
+   */
+  getCourseStudentsLastAccess(courseId: number): Observable<ApiResponse<{ [studentId: number]: string }>> {
+    return this.http.get<ApiResponse<{ [studentId: number]: string }>>(
+      `${this.API_URL}/activities/course/${courseId}/students/last-access`
+    );
+  }
+
+  /**
    * Track any activity
    */
-  track(activityType: ActivityType, data: Partial<ActivityData> = {}): void {
+  track(activityType: ActivityType, data: Partial<ActivityData> = {}, immediate: boolean = false): void {
     const activity: ActivityData = {
       sessionId: this.sessionId,
       activityType,
@@ -165,17 +226,24 @@ export class ActivityService implements OnDestroy {
       os: this.getOS(),
       screenWidth: window.innerWidth,
       screenHeight: window.innerHeight,
-      timestamp: new Date().toISOString(),
+      timestamp: this.getLocalISOString(), // Use local timezone
       ...data
     };
 
     this.activityBuffer.push(activity);
     this.saveBufferToStorage();
 
-    // Flush if buffer is full
-    if (this.activityBuffer.length >= this.BUFFER_SIZE) {
+    // Flush immediately for important activities or if buffer is full
+    if (immediate || this.activityBuffer.length >= this.BUFFER_SIZE) {
       this.flush();
     }
+  }
+
+  /**
+   * Track activity and send immediately (for important learning activities)
+   */
+  trackImmediate(activityType: ActivityType, data: Partial<ActivityData> = {}): void {
+    this.track(activityType, data, true);
   }
 
   /**
@@ -270,13 +338,14 @@ export class ActivityService implements OnDestroy {
   }
 
   // ========== LEARNING ACTIVITY TRACKING ==========
+  // All learning activities are sent immediately for accurate tracking
 
   /**
    * Track course view
    */
   trackCourseView(courseId: string, courseName: string): void {
-    this.track('COURSE_VIEW', {
-      action: `Xem khóa học: ${courseName}`,
+    this.trackImmediate('COURSE_VIEW', {
+      action: `Xem khoa hoc: ${courseName}`,
       metadata: JSON.stringify({ courseId, courseName })
     });
   }
@@ -285,8 +354,8 @@ export class ActivityService implements OnDestroy {
    * Track course enrollment
    */
   trackCourseEnroll(courseId: string, courseName: string): void {
-    this.track('COURSE_ENROLL', {
-      action: `Đăng ký khóa học: ${courseName}`,
+    this.trackImmediate('COURSE_ENROLL', {
+      action: `Dang ky khoa hoc: ${courseName}`,
       metadata: JSON.stringify({ courseId, courseName })
     });
   }
@@ -295,8 +364,8 @@ export class ActivityService implements OnDestroy {
    * Track section view
    */
   trackSectionView(sectionId: string, sectionName: string, courseId: string): void {
-    this.track('SECTION_VIEW', {
-      action: `Xem phần: ${sectionName}`,
+    this.trackImmediate('SECTION_VIEW', {
+      action: `Xem phan: ${sectionName}`,
       metadata: JSON.stringify({ sectionId, sectionName, courseId })
     });
   }
@@ -305,8 +374,8 @@ export class ActivityService implements OnDestroy {
    * Track lesson view
    */
   trackLessonView(lessonId: string, lessonName: string, courseId: string): void {
-    this.track('LESSON_VIEW', {
-      action: `Xem bài học: ${lessonName}`,
+    this.trackImmediate('LESSON_VIEW', {
+      action: `Xem bai hoc: ${lessonName}`,
       metadata: JSON.stringify({ lessonId, lessonName, courseId })
     });
   }
@@ -315,8 +384,8 @@ export class ActivityService implements OnDestroy {
    * Track quiz start
    */
   trackQuizStart(quizId: string, quizName: string, courseId: string): void {
-    this.track('QUIZ_START', {
-      action: `Bắt đầu quiz: ${quizName}`,
+    this.trackImmediate('QUIZ_START', {
+      action: `Bat dau quiz: ${quizName}`,
       metadata: JSON.stringify({ quizId, quizName, courseId })
     });
   }
@@ -324,10 +393,10 @@ export class ActivityService implements OnDestroy {
   /**
    * Track quiz submission
    */
-  trackQuizSubmit(quizId: string, quizName: string, score?: number, maxScore?: number): void {
-    this.track('QUIZ_SUBMIT', {
-      action: `Nộp quiz: ${quizName}`,
-      metadata: JSON.stringify({ quizId, quizName, score, maxScore })
+  trackQuizSubmit(quizId: string, quizName: string, courseId?: string, score?: number, maxScore?: number): void {
+    this.trackImmediate('QUIZ_SUBMIT', {
+      action: `Nop quiz: ${quizName}`,
+      metadata: JSON.stringify({ quizId, quizName, courseId, score, maxScore })
     });
   }
 
@@ -335,8 +404,8 @@ export class ActivityService implements OnDestroy {
    * Track assignment view
    */
   trackAssignmentView(assignmentId: string, assignmentName: string, courseId: string): void {
-    this.track('ASSIGNMENT_VIEW', {
-      action: `Xem bài tập: ${assignmentName}`,
+    this.trackImmediate('ASSIGNMENT_VIEW', {
+      action: `Xem bai tap: ${assignmentName}`,
       metadata: JSON.stringify({ assignmentId, assignmentName, courseId })
     });
   }
@@ -344,10 +413,10 @@ export class ActivityService implements OnDestroy {
   /**
    * Track assignment submission
    */
-  trackAssignmentSubmit(assignmentId: string, assignmentName: string): void {
-    this.track('ASSIGNMENT_SUBMIT', {
-      action: `Nộp bài tập: ${assignmentName}`,
-      metadata: JSON.stringify({ assignmentId, assignmentName })
+  trackAssignmentSubmit(assignmentId: string, assignmentName: string, courseId?: string): void {
+    this.trackImmediate('ASSIGNMENT_SUBMIT', {
+      action: `Nop bai tap: ${assignmentName}`,
+      metadata: JSON.stringify({ assignmentId, assignmentName, courseId })
     });
   }
 
@@ -355,7 +424,7 @@ export class ActivityService implements OnDestroy {
    * Track video play
    */
   trackVideoPlay(videoId: string, videoName: string, currentTime?: number): void {
-    this.track('VIDEO_PLAY', {
+    this.trackImmediate('VIDEO_PLAY', {
       action: `Xem video: ${videoName}`,
       metadata: JSON.stringify({ videoId, videoName, currentTime })
     });
@@ -365,7 +434,7 @@ export class ActivityService implements OnDestroy {
    * Track video complete
    */
   trackVideoComplete(videoId: string, videoName: string, durationMs: number): void {
-    this.track('VIDEO_COMPLETE', {
+    this.trackImmediate('VIDEO_COMPLETE', {
       action: `Xem xong video: ${videoName}`,
       durationMs,
       metadata: JSON.stringify({ videoId, videoName })
@@ -376,7 +445,7 @@ export class ActivityService implements OnDestroy {
    * Track login
    */
   trackLogin(method: string = 'standard'): void {
-    this.track('LOGIN', {
+    this.trackImmediate('LOGIN', {
       action: method,
       metadata: JSON.stringify({ method })
     });
@@ -386,8 +455,7 @@ export class ActivityService implements OnDestroy {
    * Track logout
    */
   trackLogout(): void {
-    this.track('LOGOUT');
-    this.flush(); // Immediately send on logout
+    this.trackImmediate('LOGOUT', {});
   }
 
   /**
@@ -526,5 +594,21 @@ export class ActivityService implements OnDestroy {
     if (ua.includes('Android')) return 'Android';
     if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
     return 'Other';
+  }
+
+  /**
+   * Get local ISO string with timezone offset (Vietnam GMT+7)
+   * Format: 2026-01-07T03:42:41.726
+   */
+  private getLocalISOString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
   }
 }

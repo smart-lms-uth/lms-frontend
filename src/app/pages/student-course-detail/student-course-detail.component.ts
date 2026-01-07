@@ -5,8 +5,10 @@ import { AuthService, User } from '../../services/auth.service';
 import { CourseService, Course, Section, Module } from '../../services/course.service';
 import { GradeService, CourseGradesResponse } from '../../services/grade.service';
 import { ProgressService } from '../../services/progress.service';
+import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, ProgressComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
+import { StudentLiveClassComponent } from '../../components/live-class';
 
 @Component({
   selector: 'app-student-course-detail',
@@ -18,7 +20,8 @@ import { CardComponent, BadgeComponent, ProgressComponent, BreadcrumbComponent, 
     CardComponent,
     BadgeComponent,
     ProgressComponent,
-    BreadcrumbComponent
+    BreadcrumbComponent,
+    StudentLiveClassComponent
   ],
   templateUrl: './student-course-detail.component.html',
   styleUrls: ['./student-course-detail.component.scss']
@@ -33,7 +36,7 @@ export class StudentCourseDetailComponent implements OnInit {
   expandedSections = signal<number[]>([]);
   
   // Tab management
-  activeTab = signal<'course' | 'grades'>('course');
+  activeTab = signal<'course' | 'liveclass' | 'grades'>('course');
   
   // Grades
   gradesData = signal<CourseGradesResponse | null>(null);
@@ -47,6 +50,7 @@ export class StudentCourseDetailComponent implements OnInit {
     public courseService: CourseService,
     private gradeService: GradeService,
     private progressService: ProgressService,
+    private activityService: ActivityService,
     private router: Router,
     private route: ActivatedRoute
   ) {}
@@ -66,6 +70,8 @@ export class StudentCourseDetailComponent implements OnInit {
       const tab = this.route.snapshot.queryParamMap.get('tab');
       if (tab === 'grades') {
         this.activeTab.set('grades');
+      } else if (tab === 'liveclass') {
+        this.activeTab.set('liveclass');
       }
     } else {
       this.loading.set(false);
@@ -78,6 +84,14 @@ export class StudentCourseDetailComponent implements OnInit {
     try {
       const course = await this.courseService.getCourseById(this.courseId()!).toPromise();
       this.course.set(course || null);
+      
+      // Track course view activity
+      if (course) {
+        this.activityService.trackCourseView(
+          this.courseId()!.toString(), 
+          course.subjectName || 'Khóa học'
+        );
+      }
     } catch (error) {
       console.error('Error loading course:', error);
       this.course.set(null);
@@ -94,12 +108,40 @@ export class StudentCourseDetailComponent implements OnInit {
       // Filter only visible sections for students
       const visibleSections = (sections || []).filter(s => s.visible);
       this.sections.set(visibleSections);
+      
+      // Load modules for all sections to show correct count
+      await this.loadAllModules(visibleSections);
     } catch (error) {
       console.error('Error loading sections:', error);
       this.sections.set([]);
     } finally {
       this.sectionsLoading.set(false);
     }
+  }
+
+  /**
+   * Load modules for all sections to display correct module count
+   */
+  async loadAllModules(sections: Section[]) {
+    const loadPromises = sections.map(async (section) => {
+      try {
+        const modules = await this.courseService.getModulesBySection(section.id).toPromise();
+        const visibleModules = (modules || []).filter(m => m.visible);
+        return { sectionId: section.id, modules: visibleModules };
+      } catch (error) {
+        console.error('Error loading modules for section:', section.id, error);
+        return { sectionId: section.id, modules: [] };
+      }
+    });
+    
+    const results = await Promise.all(loadPromises);
+    
+    this.sections.update(sections => 
+      sections.map(s => {
+        const result = results.find(r => r.sectionId === s.id);
+        return result ? { ...s, modules: result.modules } : s;
+      })
+    );
   }
 
   async loadMyGrades() {
@@ -191,7 +233,7 @@ export class StudentCourseDetailComponent implements OnInit {
     return 'cs';
   }
 
-  setActiveTab(tab: 'course' | 'grades') {
+  setActiveTab(tab: 'course' | 'liveclass' | 'grades') {
     this.activeTab.set(tab);
     this.router.navigate([], {
       relativeTo: this.route,

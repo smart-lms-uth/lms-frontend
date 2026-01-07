@@ -619,7 +619,8 @@ export class TeacherCourseGradesComponent {
     const student = students[studentIndex];
     if (!student) return;
 
-    const inputValue = this.tempGrade().trim();
+    const rawValue = this.tempGrade();
+    const inputValue = (rawValue !== null && rawValue !== undefined) ? String(rawValue).trim() : '';
     let newScore: number | null = null;
 
     if (inputValue !== '' && inputValue !== '-') {

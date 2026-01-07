@@ -2,8 +2,11 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AuthService } from '../../services/auth.service';
-import { CourseService, Course, Section, Module } from '../../services/course.service';
+import { CourseService, Course, Section, Module, QuizSettings, GradingMethod, QuestionSelectionMode, ExamDistributionMode, RandomQuestionConfig } from '../../services/course.service';
+import { QuestionBankService, Chapter, Question } from '../../services/question-bank.service';
+import { QuizService, QuizQuestion, AnswerRequest, RandomQuestionsRequest, AddQuestionsRequest } from '../../services/quiz.service';
 import { EditModeService } from '../../services/edit-mode.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
@@ -54,7 +57,35 @@ export class TeacherSectionDetailComponent implements OnInit {
   newModuleGradeType: 'PROCESS' | 'FINAL' | null = null;
   newModuleIsShowInGradeTable: boolean = true;
 
+  // ========== QUIZ SETTINGS ==========
+  quizSettings: QuizSettings = this.getDefaultQuizSettings();
+  
+  // UI state for quiz settings tabs
+  activeQuizTab: 'time' | 'attempt' | 'questions' | 'display' | 'review' | 'security' = 'time';
+
+  // ========== QUESTION SELECTION STATE ==========
+  availableChapters = signal<Chapter[]>([]);
+  availableQuestions = signal<Question[]>([]);
+  questionsLoading = signal(false);
+  chaptersLoading = signal(false);
+  selectedChapterIds: number[] = [];
+  selectedQuestionIds: number[] = [];
+  // Group questions by chapter for display
+  questionsByChapter = signal<Map<number, Question[]>>(new Map());
+
+  // ========== QUIZ PREVIEW STATE ==========
+  showQuizPreview = signal(false);
+  previewModule = signal<Module | null>(null);
+  previewQuestions = signal<QuizQuestion[]>([]);
+  previewLoading = signal(false);
+  previewAnswers: Map<number, AnswerRequest> = new Map();
+  previewCurrentQuestion = signal(0);
+  previewShowResult = signal(false);
+
   editModeService = inject(EditModeService);
+  private questionBankService = inject(QuestionBankService);
+  private quizService = inject(QuizService);
+  private sanitizer = inject(DomSanitizer);
 
   constructor(
     private authService: AuthService,
@@ -147,7 +178,142 @@ export class TeacherSectionDetailComponent implements OnInit {
   }
 
   goToModule(module: Module) {
+    // Nếu không phải edit mode và là Quiz, hiển thị preview
+    if (!this.editModeService.editMode() && module.type === 'QUIZ') {
+      this.openQuizPreview(module);
+      return;
+    }
     this.router.navigate(['/teacher/courses', this.courseId(), 'sections', this.sectionId(), 'modules', module.id]);
+  }
+
+  // ========== QUIZ PREVIEW METHODS ==========
+  
+  async openQuizPreview(module: Module) {
+    this.previewModule.set(module);
+    this.showQuizPreview.set(true);
+    this.previewLoading.set(true);
+    this.previewAnswers.clear();
+    this.previewCurrentQuestion.set(0);
+    this.previewShowResult.set(false);
+
+    try {
+      const questions = await this.quizService.getQuizQuestions(module.id).toPromise();
+      this.previewQuestions.set(questions || []);
+    } catch (error) {
+      console.error('Error loading quiz questions:', error);
+      this.previewQuestions.set([]);
+    } finally {
+      this.previewLoading.set(false);
+    }
+  }
+
+  closeQuizPreview() {
+    this.showQuizPreview.set(false);
+    this.previewModule.set(null);
+    this.previewQuestions.set([]);
+    this.previewAnswers.clear();
+    this.previewShowResult.set(false);
+  }
+
+  selectPreviewAnswer(questionId: number, optionId: number, isMulti: boolean = false) {
+    if (this.previewShowResult()) return;
+    
+    const existing = this.previewAnswers.get(questionId);
+    
+    if (isMulti) {
+      // Multi-choice: toggle selection
+      const currentIds = existing?.selectedOptionIds || [];
+      const index = currentIds.indexOf(optionId);
+      if (index > -1) {
+        currentIds.splice(index, 1);
+      } else {
+        currentIds.push(optionId);
+      }
+      this.previewAnswers.set(questionId, { questionId, selectedOptionIds: [...currentIds] });
+    } else {
+      // Single choice: replace
+      this.previewAnswers.set(questionId, { questionId, selectedOptionId: optionId });
+    }
+  }
+
+  setPreviewFillAnswer(questionId: number, text: string) {
+    if (this.previewShowResult()) return;
+    this.previewAnswers.set(questionId, { questionId, textAnswer: text });
+  }
+
+  isPreviewOptionSelected(questionId: number, optionId: number): boolean {
+    const answer = this.previewAnswers.get(questionId);
+    if (!answer) return false;
+    if (answer.selectedOptionId === optionId) return true;
+    if (answer.selectedOptionIds?.includes(optionId)) return true;
+    return false;
+  }
+
+  getPreviewFillAnswer(questionId: number): string {
+    return this.previewAnswers.get(questionId)?.textAnswer || '';
+  }
+
+  goToPreviewQuestion(index: number) {
+    if (index >= 0 && index < this.previewQuestions().length) {
+      this.previewCurrentQuestion.set(index);
+    }
+  }
+
+  submitPreviewQuiz() {
+    this.previewShowResult.set(true);
+  }
+
+  resetPreviewQuiz() {
+    this.previewAnswers.clear();
+    this.previewCurrentQuestion.set(0);
+    this.previewShowResult.set(false);
+  }
+
+  calculatePreviewScore(): { correct: number; total: number; score: number; maxScore: number } {
+    let correct = 0;
+    let score = 0;
+    let maxScore = 0;
+    
+    this.previewQuestions().forEach(qq => {
+      const answer = this.previewAnswers.get(qq.question.id);
+      maxScore += qq.point;
+      
+      if (qq.question.type === 'SINGLE') {
+        const correctOption = qq.question.options.find(o => o.isCorrect);
+        if (correctOption && answer?.selectedOptionId === correctOption.id) {
+          correct++;
+          score += qq.point;
+        }
+      } else if (qq.question.type === 'MULTI') {
+        const correctIds = qq.question.options.filter(o => o.isCorrect).map(o => o.id);
+        const selectedIds = answer?.selectedOptionIds || [];
+        if (correctIds.length === selectedIds.length && 
+            correctIds.every(id => selectedIds.includes(id))) {
+          correct++;
+          score += qq.point;
+        }
+      } else if (qq.question.type === 'FILL') {
+        // For fill, just check if answered (actual check needs BE logic)
+        if (answer?.textAnswer) {
+          // Simple check - could be improved
+          correct++;
+          score += qq.point;
+        }
+      }
+    });
+
+    return { correct, total: this.previewQuestions().length, score, maxScore };
+  }
+
+  isPreviewAnswerCorrect(questionId: number, optionId: number): boolean | null {
+    if (!this.previewShowResult()) return null;
+    const qq = this.previewQuestions().find(q => q.question.id === questionId);
+    if (!qq) return null;
+    return qq.question.options.find(o => o.id === optionId)?.isCorrect || false;
+  }
+
+  sanitizeHtml(html: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   getModuleTypeLabel(type: string): string {
@@ -198,6 +364,13 @@ export class TeacherSectionDetailComponent implements OnInit {
     this.newModuleScoreWeight = module.scoreWeight ?? null;
     this.newModuleGradeType = module.gradeType ?? null;
     this.newModuleIsShowInGradeTable = module.isShowInGradeTable ?? true;
+    // Quiz settings
+    if (module.type === 'QUIZ' && module.settings) {
+      this.quizSettings = { ...this.getDefaultQuizSettings(), ...module.settings };
+    } else {
+      this.quizSettings = this.getDefaultQuizSettings();
+    }
+    this.activeQuizTab = 'time';
     this.showModuleModal.set(true);
   }
 
@@ -217,12 +390,245 @@ export class TeacherSectionDetailComponent implements OnInit {
     this.newModuleScoreWeight = null;
     this.newModuleGradeType = null;
     this.newModuleIsShowInGradeTable = true;
+    // Quiz settings
+    this.quizSettings = this.getDefaultQuizSettings();
+    this.activeQuizTab = 'time';
+    // Question selection state
+    this.selectedChapterIds = [];
+    this.selectedQuestionIds = [];
     this.editingModule.set(null);
+  }
+
+  // Get default quiz settings
+  getDefaultQuizSettings(): QuizSettings {
+    return {
+      // Time
+      durationMinutes: 60,
+      // Attempt
+      maxAttempts: 1,
+      gradingMethod: 'HIGHEST',
+      // Questions
+      questionSelectionMode: 'MANUAL',
+      distributionMode: 'SAME_FOR_ALL',
+      selectedQuestionIds: [],
+      randomConfig: {
+        fromChapterIds: [],
+        easyCount: 0,
+        mediumCount: 0,
+        hardCount: 0
+      },
+      // Display
+      shuffleQuestions: true,
+      shuffleAnswers: true,
+      oneQuestionPerPage: false,
+      allowBackNavigation: true,
+      showQuestionNumber: true,
+      showPointsPerQuestion: false,
+      // Review
+      showCorrectAnswers: false,
+      allowReview: true,
+      showScoreImmediately: true,
+      // Security
+      requireFullscreen: false,
+      detectTabSwitch: false,
+      maxTabSwitchCount: 3,
+      requireWebcam: false
+    };
   }
 
   // Check if current module type can have grades
   isGradeableType(): boolean {
     return this.newModuleType === 'ASSIGNMENT' || this.newModuleType === 'QUIZ';
+  }
+
+  // Check if quiz type
+  isQuizType(): boolean {
+    return this.newModuleType === 'QUIZ';
+  }
+
+  // Switch quiz settings tab
+  setQuizTab(tab: 'time' | 'attempt' | 'questions' | 'display' | 'review' | 'security') {
+    this.activeQuizTab = tab;
+    // Load chapters and questions when switching to questions tab
+    if (tab === 'questions' && this.course()?.subjectId) {
+      this.loadChaptersAndQuestions();
+    }
+  }
+
+  // ========== QUESTION SELECTION METHODS ==========
+  
+  async loadChaptersAndQuestions() {
+    const subjectId = this.course()?.subjectId;
+    if (!subjectId) return;
+    
+    this.chaptersLoading.set(true);
+    this.questionsLoading.set(true);
+    
+    try {
+      // Load chapters
+      const chapters = await this.questionBankService.getChaptersBySubject(subjectId).toPromise();
+      this.availableChapters.set(chapters || []);
+      
+      // Load all questions for the subject
+      const questions = await this.questionBankService.getQuestions(subjectId).toPromise();
+      this.availableQuestions.set(questions || []);
+      
+      // Group questions by chapter
+      this.groupQuestionsByChapter(questions || []);
+    } catch (error) {
+      console.error('Error loading chapters/questions:', error);
+    } finally {
+      this.chaptersLoading.set(false);
+      this.questionsLoading.set(false);
+    }
+  }
+
+  groupQuestionsByChapter(questions: Question[]) {
+    const grouped = new Map<number, Question[]>();
+    // Group for questions with chapters
+    questions.forEach(q => {
+      const chapterId = q.chapterId || 0; // 0 for questions without chapter
+      if (!grouped.has(chapterId)) {
+        grouped.set(chapterId, []);
+      }
+      grouped.get(chapterId)!.push(q);
+    });
+    this.questionsByChapter.set(grouped);
+  }
+
+  // Toggle chapter selection for random mode
+  toggleChapterSelection(chapterId: number) {
+    const index = this.selectedChapterIds.indexOf(chapterId);
+    if (index > -1) {
+      this.selectedChapterIds.splice(index, 1);
+    } else {
+      this.selectedChapterIds.push(chapterId);
+    }
+    // Update randomConfig
+    if (!this.quizSettings.randomConfig) {
+      this.quizSettings.randomConfig = {};
+    }
+    this.quizSettings.randomConfig.fromChapterIds = [...this.selectedChapterIds];
+  }
+
+  isChapterSelected(chapterId: number): boolean {
+    return this.selectedChapterIds.includes(chapterId);
+  }
+
+  // Toggle question selection for manual mode
+  toggleQuestionSelection(questionId: number) {
+    const index = this.selectedQuestionIds.indexOf(questionId);
+    if (index > -1) {
+      this.selectedQuestionIds.splice(index, 1);
+    } else {
+      this.selectedQuestionIds.push(questionId);
+    }
+    // Update settings
+    this.quizSettings.selectedQuestionIds = [...this.selectedQuestionIds];
+  }
+
+  isQuestionSelected(questionId: number): boolean {
+    return this.selectedQuestionIds.includes(questionId);
+  }
+
+  // Get questions for a specific chapter
+  getQuestionsForChapter(chapterId: number): Question[] {
+    return this.questionsByChapter().get(chapterId) || [];
+  }
+
+  // Get total count based on random config
+  getRandomTotalCount(): number {
+    const config = this.quizSettings.randomConfig;
+    if (!config) return 0;
+    return (config.easyCount || 0) + (config.mediumCount || 0) + (config.hardCount || 0);
+  }
+
+  // Init random config if not exists
+  initRandomConfig() {
+    if (!this.quizSettings.randomConfig) {
+      this.quizSettings.randomConfig = {
+        fromChapterIds: [],
+        easyCount: 0,
+        mediumCount: 0,
+        hardCount: 0
+      };
+    }
+  }
+
+  // Get question level badge class
+  getLevelBadgeClass(level: string): string {
+    switch (level) {
+      case 'EASY': return 'badge--easy';
+      case 'MEDIUM': return 'badge--medium';
+      case 'HARD': return 'badge--hard';
+      default: return '';
+    }
+  }
+
+  // Get question level display name
+  getLevelDisplayName(level: string): string {
+    switch (level) {
+      case 'EASY': return 'Dễ';
+      case 'MEDIUM': return 'TB';
+      case 'HARD': return 'Khó';
+      default: return level;
+    }
+  }
+
+  /**
+   * Add questions to quiz based on selection mode
+   */
+  async addQuizQuestions(moduleId: number) {
+    try {
+      const mode = this.quizSettings.questionSelectionMode;
+      console.log('[DEBUG] addQuizQuestions - mode:', mode);
+      console.log('[DEBUG] addQuizQuestions - moduleId:', moduleId);
+      console.log('[DEBUG] addQuizQuestions - quizSettings:', JSON.stringify(this.quizSettings, null, 2));
+      
+      if (mode === 'RANDOM' || mode === 'MIXED') {
+        // Add random questions
+        const config = this.quizSettings.randomConfig;
+        console.log('[DEBUG] RANDOM/MIXED mode - randomConfig:', JSON.stringify(config, null, 2));
+        
+        if (config && (config.easyCount || config.mediumCount || config.hardCount)) {
+          const request = {
+            fromChapterIds: config.fromChapterIds,
+            easyCount: config.easyCount || 0,
+            mediumCount: config.mediumCount || 0,
+            hardCount: config.hardCount || 0,
+            pointPerQuestion: 1.0
+          };
+          console.log('[DEBUG] Calling addRandomQuestionsToQuiz with:', JSON.stringify(request, null, 2));
+          
+          const result = await this.quizService.addRandomQuestionsToQuiz(moduleId, request).toPromise();
+          console.log('[DEBUG] addRandomQuestionsToQuiz result:', result);
+        } else {
+          console.log('[DEBUG] Skipping random - no counts configured');
+        }
+      }
+      
+      if (mode === 'MANUAL' || mode === 'MIXED') {
+        // Add selected questions
+        console.log('[DEBUG] MANUAL/MIXED mode - selectedQuestionIds:', this.selectedQuestionIds);
+        
+        if (this.selectedQuestionIds.length > 0) {
+          const questions = this.selectedQuestionIds.map((qId, index) => ({
+            questionId: qId,
+            point: 1.0,
+            orderIndex: index + 1
+          }));
+          console.log('[DEBUG] Calling addQuestionsToQuiz with:', JSON.stringify({ questions }, null, 2));
+          
+          const result = await this.quizService.addQuestionsToQuiz(moduleId, { questions }).toPromise();
+          console.log('[DEBUG] addQuestionsToQuiz result:', result);
+        } else {
+          console.log('[DEBUG] Skipping manual - no questions selected');
+        }
+      }
+    } catch (error) {
+      console.error('[ERROR] addQuizQuestions failed:', error);
+      // Don't throw - module already created, questions can be added later
+    }
   }
 
   async saveModule() {
@@ -251,12 +657,32 @@ export class TeacherSectionDetailComponent implements OnInit {
         moduleData.isShowInGradeTable = this.newModuleIsShowInGradeTable;
       }
 
+      // Add quiz settings if it's a quiz
+      if (this.isQuizType()) {
+        moduleData.settings = this.quizSettings;
+      }
+
+      let savedModule: Module | undefined;
+      
       if (this.editingModule()) {
         // Update existing module
-        await this.courseService.updateModule(this.editingModule()!.id, moduleData).toPromise();
+        console.log('[DEBUG] Updating module:', this.editingModule()!.id);
+        savedModule = await this.courseService.updateModule(this.editingModule()!.id, moduleData).toPromise();
+        console.log('[DEBUG] Updated module result:', savedModule);
       } else {
         // Create new module
-        await this.courseService.createModule(this.sectionId()!, moduleData).toPromise();
+        console.log('[DEBUG] Creating new module for section:', this.sectionId());
+        console.log('[DEBUG] Module data:', JSON.stringify(moduleData, null, 2));
+        savedModule = await this.courseService.createModule(this.sectionId()!, moduleData).toPromise();
+        console.log('[DEBUG] Created module result:', savedModule);
+      }
+
+      // After creating/updating QUIZ module, add questions based on selection mode
+      if (savedModule && this.isQuizType()) {
+        console.log('[DEBUG] Will add quiz questions for module ID:', savedModule.id);
+        await this.addQuizQuestions(savedModule.id);
+      } else {
+        console.log('[DEBUG] NOT adding quiz questions - savedModule:', !!savedModule, 'isQuizType:', this.isQuizType());
       }
 
       this.closeModuleModal();

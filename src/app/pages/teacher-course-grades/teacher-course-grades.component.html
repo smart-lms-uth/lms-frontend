@@ -242,7 +242,7 @@
               [class.col-grade--attendance]="module.virtualType === 'ATTENDANCE'"
               [class.col-grade--bonus]="module.virtualType === 'BONUS'"
               [class.col-grade--editing]="isEditingGrade(i, module.id)"
-              [class.col-grade--has-pending]="pendingGradeChanges().has(i + '-' + module.id)">
+              [class.col-grade--has-pending]="pendingGradeChanges().has(student.enrollmentId + '-' + module.id)">
             <!-- View mode or not editing this cell -->
             <span 
               *ngIf="!isColumnCollapsed(module.id) && (!isEditMode() || !isEditingGrade(i, module.id))" 

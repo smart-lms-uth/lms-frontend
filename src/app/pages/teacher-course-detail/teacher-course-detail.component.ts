@@ -10,6 +10,8 @@ import { CardComponent, BadgeComponent, ProgressComponent, BreadcrumbComponent, 
 import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { TeacherCourseGradesComponent } from '../teacher-course-grades/teacher-course-grades.component';
 import { TeacherCourseStudentsComponent } from '../teacher-course-students/teacher-course-students.component';
+import { CopyContentDialogComponent } from '../../components/copy-content-dialog';
+import { LiveClassManagerComponent } from '../../components/live-class';
 
 @Component({
   selector: 'app-teacher-course-detail',
@@ -26,7 +28,9 @@ import { TeacherCourseStudentsComponent } from '../teacher-course-students/teach
     CdkDrag,
     CdkDropList,
     TeacherCourseGradesComponent,
-    TeacherCourseStudentsComponent
+    TeacherCourseStudentsComponent,
+    CopyContentDialogComponent,
+    LiveClassManagerComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrls: ['./teacher-course-detail.component.scss']
@@ -42,7 +46,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   originalSectionOrder = signal<number[]>([]);
   
   // Tab management
-  activeTab = signal<'course' | 'students' | 'grades'>('course');
+  activeTab = signal<'course' | 'students' | 'grades' | 'liveclass'>('course');
   
   // Inline editing
   editingSectionId = signal<number | null>(null);
@@ -55,6 +59,10 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   newSectionTitle: string = '';
   newSectionDescription: string = '';
   newSectionVisible: boolean = true;
+  
+  // Copy content dialog
+  showCopyContentDialog = signal(false);
+  currentInstructorId = signal<number>(0);
   
   editModeService = inject(EditModeService);
   
@@ -83,6 +91,12 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // Set instructor ID from current user
+    const currentUser = this.authService.getCurrentUserSync();
+    if (currentUser) {
+      this.currentInstructorId.set(currentUser.id);
+    }
+    
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.courseId.set(parseInt(id));
@@ -95,6 +109,8 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
         this.activeTab.set('grades');
       } else if (tab === 'students') {
         this.activeTab.set('students');
+      } else if (tab === 'liveclass') {
+        this.activeTab.set('liveclass');
       }
     } else {
       this.loading.set(false);
@@ -196,7 +212,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   }
 
   // Tab management
-  setActiveTab(tab: 'course' | 'students' | 'grades') {
+  setActiveTab(tab: 'course' | 'students' | 'grades' | 'liveclass') {
     this.activeTab.set(tab);
     // Update URL with query param
     this.router.navigate([], {
@@ -236,6 +252,18 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     this.newSectionDescription = '';
     this.newSectionVisible = true;
     this.showAddSectionModal.set(true);
+  }
+
+  openCopyContentDialog() {
+    this.showCopyContentDialog.set(true);
+  }
+
+  onCopyContentClosed(success: boolean) {
+    this.showCopyContentDialog.set(false);
+    if (success) {
+      // Reload sections after successful copy
+      this.loadSections();
+    }
   }
 
   cancelAddSection() {

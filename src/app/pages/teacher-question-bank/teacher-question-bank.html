@@ -1,0 +1,486 @@
+<app-main-layout (logoutClicked)="logout()">
+  <div class="question-bank-page">
+    <!-- Page Header -->
+    <div class="page-header">
+      <app-breadcrumb [items]="getBreadcrumbs()" [showHomeIcon]="true"></app-breadcrumb>
+      <h1 class="page-title">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        Ngân hàng câu hỏi
+      </h1>
+    </div>
+
+    <!-- Subject Selector -->
+    <app-card variant="default" class="subject-selector-card">
+      <div class="subject-selector">
+        <label class="selector-label">Chọn môn học:</label>
+        <select class="form-select" [ngModel]="selectedSubjectId()" 
+                (ngModelChange)="selectSubject($event)">
+          <option [ngValue]="null" disabled>-- Chọn môn học --</option>
+          <option *ngFor="let subject of subjects()" [ngValue]="subject.id">
+            {{ subject.code }} - {{ subject.name }}
+          </option>
+        </select>
+      </div>
+    </app-card>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid" *ngIf="stats()">
+      <div class="stat-card stat-card--total">
+        <div class="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats()!.total }}</span>
+          <span class="stat-label">Tổng câu hỏi</span>
+        </div>
+      </div>
+      
+      <div class="stat-card stat-card--easy">
+        <div class="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+            <line x1="15" y1="9" x2="15.01" y2="9"></line>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats()!.easy }}</span>
+          <span class="stat-label">Dễ</span>
+        </div>
+      </div>
+      
+      <div class="stat-card stat-card--medium">
+        <div class="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="8" y1="15" x2="16" y2="15"></line>
+            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+            <line x1="15" y1="9" x2="15.01" y2="9"></line>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats()!.medium }}</span>
+          <span class="stat-label">Trung bình</span>
+        </div>
+      </div>
+      
+      <div class="stat-card stat-card--hard">
+        <div class="stat-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M16 16s-1.5-2-4-2-4 2-4 2"></path>
+            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+            <line x1="15" y1="9" x2="15.01" y2="9"></line>
+          </svg>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats()!.hard }}</span>
+          <span class="stat-label">Khó</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" *ngIf="selectedSubjectId()">
+      <!-- Filters & Actions -->
+      <app-card variant="default" class="filters-card">
+        <div class="filters-row">
+          <!-- Search -->
+          <div class="search-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" placeholder="Tìm kiếm câu hỏi..." 
+                   [ngModel]="searchKeyword()" 
+                   (ngModelChange)="searchKeyword.set($event)">
+          </div>
+          
+          <!-- Filters -->
+          <div class="filter-group">
+            <select class="form-select" [ngModel]="selectedChapterId()" 
+                    (ngModelChange)="selectedChapterId.set($event); applyFilters()">
+              <option [ngValue]="null">Tất cả chương</option>
+              <option *ngFor="let chapter of chapters()" [ngValue]="chapter.id">
+                Chương {{ chapter.chapterIndex }}: {{ chapter.name }}
+              </option>
+            </select>
+            
+            <select class="form-select" [ngModel]="selectedType()" 
+                    (ngModelChange)="selectedType.set($event); applyFilters()">
+              <option [ngValue]="null">Tất cả loại</option>
+              <option value="SINGLE">Một đáp án</option>
+              <option value="MULTI">Nhiều đáp án</option>
+              <option value="FILL">Điền vào chỗ trống</option>
+            </select>
+            
+            <select class="form-select" [ngModel]="selectedLevel()" 
+                    (ngModelChange)="selectedLevel.set($event); applyFilters()">
+              <option [ngValue]="null">Tất cả độ khó</option>
+              <option value="EASY">Dễ</option>
+              <option value="MEDIUM">Trung bình</option>
+              <option value="HARD">Khó</option>
+            </select>
+            
+            <button class="btn btn--outline btn--sm" (click)="clearFilters()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              Xóa bộ lọc
+            </button>
+          </div>
+          
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <button class="btn btn--outline" (click)="openXmlImportModal()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              Import XML
+            </button>
+            <button class="btn btn--primary" (click)="openCreateModal()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Thêm câu hỏi
+            </button>
+          </div>
+        </div>
+      </app-card>
+
+      <!-- Questions List -->
+      <div class="questions-list">
+        <div *ngIf="loading()" class="loading-container">
+          <div class="spinner"></div>
+          <p>Đang tải...</p>
+        </div>
+        
+        <div *ngIf="!loading() && filteredQuestions().length === 0" class="empty-state">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <h3>Chưa có câu hỏi nào</h3>
+          <p>Bắt đầu thêm câu hỏi vào ngân hàng đề</p>
+        </div>
+        
+        <div class="question-card" *ngFor="let question of filteredQuestions(); let i = index; trackBy: trackByQuestion">
+          <div class="question-header">
+            <span class="question-number">Câu {{ i + 1 }}</span>
+            <div class="question-badges">
+              <span class="badge badge--type">{{ getTypeLabel(question.type) }}</span>
+              <span class="badge badge--level" [ngClass]="getLevelClass(question.level)">
+                {{ getLevelLabel(question.level) }}
+              </span>
+              <span class="badge badge--chapter" *ngIf="question.chapterName">
+                {{ question.chapterName }}
+              </span>
+            </div>
+            <div class="question-actions">
+              <button class="btn-icon" title="Sửa" (click)="openEditModal(question)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              <button class="btn-icon btn-icon--danger" title="Xóa" (click)="confirmDelete(question)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <div class="question-content" [innerHTML]="question.content"></div>
+          
+          <div class="question-options">
+            <div class="option" *ngFor="let option of question.options; let j = index" 
+                 [class.option--correct]="option.isCorrect">
+              <span class="option-label">{{ option.label || getOptionLabel(j) }}</span>
+              <span class="option-content">{{ option.content }}</span>
+              <svg *ngIf="option.isCorrect" class="option-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+          </div>
+          
+          <div class="question-explanation" *ngIf="question.explanation">
+            <strong>Giải thích:</strong> {{ question.explanation }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</app-main-layout>
+
+<!-- Question Modal -->
+<div class="modal-overlay" *ngIf="showQuestionModal()" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ editingQuestion() ? 'Sửa câu hỏi' : 'Thêm câu hỏi mới' }}</h2>
+      <button class="modal-close" (click)="closeModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Loại câu hỏi</label>
+          <select class="form-select" [(ngModel)]="formType">
+            <option value="SINGLE">Một đáp án đúng</option>
+            <option value="MULTI">Nhiều đáp án đúng</option>
+            <option value="FILL">Điền vào chỗ trống</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Độ khó</label>
+          <select class="form-select" [(ngModel)]="formLevel">
+            <option value="EASY">Dễ</option>
+            <option value="MEDIUM">Trung bình</option>
+            <option value="HARD">Khó</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Chương</label>
+          <select class="form-select" [(ngModel)]="formChapterId">
+            <option [ngValue]="null">-- Không chọn --</option>
+            <option *ngFor="let chapter of chapters()" [ngValue]="chapter.id">
+              Chương {{ chapter.chapterIndex }}: {{ chapter.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Nội dung câu hỏi <span class="required">*</span></label>
+        <textarea class="form-textarea" [(ngModel)]="formContent" rows="4" 
+                  placeholder="Nhập nội dung câu hỏi..."></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Các đáp án <span class="required">*</span></label>
+        <p class="form-hint" *ngIf="formType === 'SINGLE'">Click vào đáp án để đánh dấu là đáp án đúng</p>
+        <p class="form-hint" *ngIf="formType === 'MULTI'">Click vào các đáp án đúng (có thể chọn nhiều)</p>
+        
+        <div class="options-list">
+          <div class="option-input" *ngFor="let option of formOptions; let i = index; trackBy: trackByOption">
+            <button class="option-correct-btn" 
+                    [class.active]="option.isCorrect"
+                    (click)="setCorrectOption(i)"
+                    type="button">
+              {{ getOptionLabel(i) }}
+            </button>
+            <input type="text" class="form-input" [(ngModel)]="option.content" 
+                   placeholder="Nhập đáp án {{ getOptionLabel(i) }}...">
+            <button class="btn-icon btn-icon--danger" (click)="removeOption(i)" 
+                    *ngIf="formOptions.length > 2" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          
+          <button class="btn btn--outline btn--sm" (click)="addOption()" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Thêm đáp án
+          </button>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Giải thích đáp án</label>
+        <textarea class="form-textarea" [(ngModel)]="formExplanation" rows="2" 
+                  placeholder="Nhập giải thích (hiển thị sau khi sinh viên trả lời)..."></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">URL hình ảnh</label>
+        <input type="text" class="form-input" [(ngModel)]="formImageUrl" 
+               placeholder="https://...">
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn--outline" (click)="closeModal()">Hủy</button>
+      <button class="btn btn--primary" (click)="saveQuestion()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        {{ editingQuestion() ? 'Cập nhật' : 'Tạo câu hỏi' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" *ngIf="showDeleteConfirm()" (click)="cancelDelete()">
+  <div class="modal modal--sm" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Xác nhận xóa</h2>
+    </div>
+    <div class="modal-body">
+      <p>Bạn có chắc chắn muốn xóa câu hỏi này?</p>
+      <p class="text-muted">Hành động này không thể hoàn tác.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn--outline" (click)="cancelDelete()">Hủy</button>
+      <button class="btn btn--danger" (click)="deleteQuestion()">Xóa</button>
+    </div>
+  </div>
+</div>
+
+<!-- XML Import Modal -->
+<div class="modal-overlay" *ngIf="showXmlImportModal()" (click)="closeXmlImportModal()">
+  <div class="modal modal--lg" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Import câu hỏi từ XML</h2>
+      <button class="modal-close" (click)="closeXmlImportModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Upload Area -->
+      <div class="upload-area" *ngIf="!xmlPreviewData()">
+        <div class="upload-zone" 
+             [class.has-file]="xmlFile()"
+             (dragover)="$event.preventDefault()"
+             (drop)="$event.preventDefault()">
+          <input type="file" 
+                 accept=".xml" 
+                 id="xmlFileInput" 
+                 (change)="onXmlFileSelected($event)"
+                 style="display: none">
+          <label for="xmlFileInput" class="upload-label">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span class="upload-text">
+              {{ xmlFile() ? xmlFile()!.name : 'Click hoặc kéo thả file XML vào đây' }}
+            </span>
+            <span class="upload-hint">Chỉ chấp nhận file .xml</span>
+          </label>
+        </div>
+        
+        <button class="btn btn--outline btn--sm template-btn" (click)="downloadXmlTemplate()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Tải file mẫu XML
+        </button>
+      </div>
+      
+      <!-- Loading -->
+      <div *ngIf="xmlImportLoading()" class="loading-container">
+        <div class="spinner"></div>
+        <p>Đang xử lý...</p>
+      </div>
+      
+      <!-- Error Message -->
+      <div *ngIf="xmlImportError()" class="error-message">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>{{ xmlImportError() }}</span>
+      </div>
+      
+      <!-- Preview Area -->
+      <div class="preview-area" *ngIf="xmlPreviewData() && !xmlImportLoading()">
+        <div class="preview-header">
+          <h3>Xem trước ({{ xmlPreviewData()!.total }} câu hỏi)</h3>
+          <div class="preview-status" [class.valid]="xmlPreviewData()!.valid" [class.invalid]="!xmlPreviewData()!.valid">
+            <svg *ngIf="xmlPreviewData()!.valid" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <svg *ngIf="!xmlPreviewData()!.valid" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            {{ xmlPreviewData()!.valid ? 'Hợp lệ' : 'Có lỗi' }}
+          </div>
+        </div>
+        
+        <div class="preview-list">
+          <div class="preview-question" *ngFor="let q of xmlPreviewData()!.questions; let i = index">
+            <div class="preview-question-header">
+              <span class="preview-question-number">Câu {{ i + 1 }}</span>
+              <span class="badge badge--type">{{ getTypeLabel(q.type) }}</span>
+              <span class="badge badge--level" [ngClass]="getLevelClass(q.level)">
+                {{ getLevelLabel(q.level) }}
+              </span>
+            </div>
+            <div class="preview-question-content">{{ q.content }}</div>
+            <div class="preview-options">
+              <div class="preview-option" *ngFor="let opt of q.options; let j = index"
+                   [class.correct]="opt.isCorrect">
+                <span class="option-label">{{ getOptionLabel(j) }}</span>
+                <span class="option-text">{{ opt.content }}</span>
+                <svg *ngIf="opt.isCorrect" class="correct-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Change file button -->
+        <button class="btn btn--outline btn--sm change-file-btn" (click)="xmlPreviewData.set(null); xmlFile.set(null)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          Chọn file khác
+        </button>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn--outline" (click)="closeXmlImportModal()">Hủy</button>
+      <button class="btn btn--primary" 
+              [disabled]="!xmlPreviewData() || !xmlPreviewData()!.valid || xmlImportLoading()"
+              (click)="confirmXmlImport()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Import {{ xmlPreviewData()?.total || 0 }} câu hỏi
+      </button>
+    </div>
+  </div>
+</div>
