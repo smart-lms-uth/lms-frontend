@@ -1,0 +1,167 @@
+<div class="modal-overlay ai-modal-overlay" *ngIf="isVisible" (click)="onClose()">
+  <div class="modal-content modal-content--ai" (click)="$event.stopPropagation()">
+    <div class="modal-header modal-header--ai">
+      <div class="modal-title-ai">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+          <path d="M2 17l10 5 10-5"></path>
+          <path d="M2 12l10 5 10-5"></path>
+        </svg>
+        <span>✨ Tạo câu hỏi với AI</span>
+      </div>
+      <button class="modal-close" (click)="onClose()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body modal-body--ai">
+      <div class="ai-form" *ngIf="!hasQuestions">
+        <div class="ai-form-intro">
+          <p>Nhập chủ đề và AI sẽ tự động tạo câu hỏi trắc nghiệm cho bạn.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chủ đề / Nội dung <span class="required">*</span></label>
+          <textarea class="form-input form-textarea"
+                    [(ngModel)]="topic"
+                    placeholder="Ví dụ: Cấu trúc dữ liệu mảng và danh sách liên kết trong C++..."
+                    rows="4"></textarea>
+          <span class="form-hint">Mô tả chi tiết chủ đề để AI tạo câu hỏi chính xác hơn</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-group--half">
+            <label class="form-label">Số lượng câu hỏi</label>
+            <input type="number" class="form-input" [(ngModel)]="numQuestions" min="1" max="50" placeholder="10">
+          </div>
+          <div class="form-group form-group--half">
+            <label class="form-label">Độ khó</label>
+            <select class="form-input form-select" [(ngModel)]="difficulty">
+              <option value="EASY">Dễ</option>
+              <option value="MEDIUM">Trung bình</option>
+              <option value="HARD">Khó</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="ai-subject-info" *ngIf="subjectName">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>Môn học: <strong>{{ subjectName }}</strong></span>
+        </div>
+
+        <button class="btn btn--ai btn--lg btn--full"
+                (click)="onGenerate()"
+                [disabled]="!canGenerate">
+          <span *ngIf="!isLoading">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            Tạo câu hỏi
+          </span>
+          <span *ngIf="isLoading" class="loading-text">
+            <div class="spinner-small spinner-white"></div>
+            Đang tạo câu hỏi...
+          </span>
+        </button>
+      </div>
+
+      <div class="ai-results" *ngIf="hasQuestions">
+        <div class="ai-results-header">
+          <h4 class="ai-results-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Đã tạo {{ generatedQuestions.length }} câu hỏi
+          </h4>
+          <div class="ai-results-actions">
+            <button class="btn btn--sm btn--ghost" (click)="onSelectAll()">Chọn tất cả</button>
+            <button class="btn btn--sm btn--ghost" (click)="onDeselectAll()">Bỏ chọn</button>
+          </div>
+        </div>
+
+        <div class="ai-question-list">
+          <div *ngFor="let q of generatedQuestions; let i = index"
+               class="ai-question-item"
+               [class.ai-question-item--selected]="isQuestionSelected(i)">
+            <label class="ai-question-checkbox">
+              <input type="checkbox"
+                     [checked]="isQuestionSelected(i)"
+                     (change)="onToggleQuestion(i)">
+            </label>
+            <div class="ai-question-content">
+              <div class="ai-question-header">
+                <span class="ai-question-number">Câu {{ i + 1 }}</span>
+                <span class="badge" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelLabel(q.level) }}</span>
+                <span class="ai-question-type">{{ getTypeLabel(q.type) }}</span>
+              </div>
+              <div class="ai-question-text" [innerHTML]="q.content"></div>
+              <div class="ai-question-options">
+                <div *ngFor="let opt of q.options; let j = index"
+                     class="ai-option"
+                     [class.ai-option--correct]="opt.isCorrect">
+                  <span class="ai-option-label">{{ ['A', 'B', 'C', 'D', 'E', 'F'][j] }}.</span>
+                  <span class="ai-option-text">{{ opt.content }}</span>
+                  <span *ngIf="opt.isCorrect" class="ai-option-correct-icon">✓</span>
+                </div>
+              </div>
+              <div class="ai-question-explanation" *ngIf="q.explanation">
+                <strong>Giải thích:</strong> {{ q.explanation }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-results-footer">
+          <span class="ai-selected-count">Đã chọn: {{ selectedCount }}/{{ generatedQuestions.length }} câu</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer--ai">
+      <button class="btn btn--outline" (click)="onClose()">
+        {{ hasQuestions ? 'Hủy' : 'Đóng' }}
+      </button>
+
+      <button *ngIf="!hasQuestions"
+              class="btn btn--ghost"
+              (click)="onClearForm()">
+        Xóa form
+      </button>
+
+      <button *ngIf="hasQuestions"
+              class="btn btn--outline"
+              (click)="onRegenerate()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+        Tạo lại
+      </button>
+
+      <button *ngIf="hasQuestions"
+              class="btn btn--primary"
+              (click)="onSaveToBank()"
+              [disabled]="!canSave">
+        <span *ngIf="!isSaving">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Lưu vào ngân hàng đề
+        </span>
+        <span *ngIf="isSaving" class="loading-text">
+          <div class="spinner-small"></div>
+          Đang lưu...
+        </span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -25,6 +25,7 @@ export interface Question {
 
 export interface QuizQuestion {
   id: number;
+  moduleId?: number;
   questionId: number;
   question: Question;
   point: number;
@@ -69,6 +70,7 @@ export interface AnswerResult {
   isCorrect: boolean;
   pointsEarned: number;
   correctAnswer?: string;  // Only if settings allow
+  correctOptionIds?: number[];  // List of correct option IDs
   explanation?: string;    // Only if settings allow
 }
 
@@ -85,6 +87,7 @@ export interface SubmissionResult {
   timeSpent: number; // seconds
   attemptNumber: number;
   answers?: AnswerResult[];
+  createdAt?: string;
 }
 
 // Submission Summary
@@ -129,10 +132,9 @@ export interface RandomQuestionsRequest {
   providedIn: 'root'
 })
 export class QuizService {
-  // Quiz API endpoints don't use /v1 prefix
-  private baseUrl = environment.apiUrl.replace('/api/v1', '');
-  private apiUrl = `${this.baseUrl}/api/quiz`;
-  private questionsUrl = `${this.baseUrl}/api/modules`;
+  // Quiz API uses courseApiUrl (which is /api prefix)
+  private apiUrl = `${environment.courseApiUrl}/quiz`;
+  private questionsUrl = `${environment.courseApiUrl}/modules`;
 
   constructor(private http: HttpClient) {}
 

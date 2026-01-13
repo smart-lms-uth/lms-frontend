@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { NavigationService } from '../../services/navigation.service';
 import { ActivityService } from '../../services/activity.service';
 import { InputComponent, ButtonComponent, CheckboxComponent } from '../../components/ui';
 
@@ -24,7 +25,7 @@ export class LoginComponent {
 
   constructor(
     private authService: AuthService,
-    private router: Router,
+    private navigationService: NavigationService,
     private activityService: ActivityService
   ) {}
 
@@ -36,15 +37,8 @@ export class LoginComponent {
       next: (response) => {
         if (response.success) {
           this.activityService.trackLogin('form');
-          // Redirect based on user role
-          const user = this.authService.getCurrentUserSync();
-          if (user?.role === 'TEACHER') {
-            this.router.navigate(['/teacher/dashboard']);
-          } else if (user?.role === 'ADMIN') {
-            this.router.navigate(['/admin/dashboard']);
-          } else {
-            this.router.navigate(['/dashboard']);
-          }
+          // Redirect based on user role (centralized in NavigationService)
+          this.navigationService.navigateByCurrentUserRole();
         } else {
           this.activityService.track('LOGIN_FAILED', { action: 'login-failed', metadata: JSON.stringify({ reason: response.message }) });
           this.errorMessage.set(response.message || 'Đăng nhập thất bại');

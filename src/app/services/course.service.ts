@@ -82,6 +82,30 @@ export interface QuizSettings {
   detectTabSwitch?: boolean;
   maxTabSwitchCount?: number;
   requireWebcam?: boolean;
+
+  // === Hướng dẫn ===
+  instructions?: string;
+}
+
+/**
+ * Cấu hình đầy đủ cho bài tập (Assignment)
+ */
+export interface AssignmentSettings {
+  openDate?: string;
+  dueDate?: string;
+  allowLateSubmission?: boolean;
+  lateDueDate?: string;
+  latePenaltyPercent?: number;
+  maxFileSizeMB?: number;
+  maxFiles?: number;
+  allowedFileTypes?: string[];
+  requireComment?: boolean;
+  showGradeToStudent?: boolean;
+  allowResubmission?: boolean;
+  maxResubmissions?: number;
+  maxAttempts?: number;
+  // Markdown instructions
+  instructions?: string;
 }
 
 // Semester DTOs
@@ -168,6 +192,9 @@ export interface Section {
   description: string;
   orderIndex: number;
   visible: boolean;
+  unlockDate?: string;
+  isAiGenerated?: boolean;
+  aiPrompt?: string;
   createdAt: string;
   updatedAt: string;
   moduleCount: number;
@@ -180,20 +207,28 @@ export interface Module {
   title: string;
   description: string;
   type: 'VIDEO' | 'RESOURCE' | 'QUIZ' | 'ASSIGNMENT' | 'LIVESTREAM' | 'FORUM';
-  contentUrl?: string;
-  duration?: number;
+  resourceUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
   orderIndex: number;
   visible: boolean;
   isCompleted?: boolean;
-  // Grade fields
   maxScore?: number;
   scoreWeight?: number;
   gradeType?: 'PROCESS' | 'FINAL';
   isShowInGradeTable?: boolean;
-  // Quiz/Assignment settings
-  settings?: QuizSettings;
+  gradeCompositionId?: number;
+  estimatedDuration?: number;
+  viewCount?: number;
+  isAiGenerated?: boolean;
+  aiPrompt?: string;
+  settings?: QuizSettings | AssignmentSettings;
   createdAt?: string;
   updatedAt?: string;
+  sectionTitle?: string;
+  courseId?: number;
+  courseCode?: string;
 }
 
 export interface CreateSectionRequest {
@@ -207,16 +242,20 @@ export interface CreateModuleRequest {
   title: string;
   description: string;
   type: 'VIDEO' | 'RESOURCE' | 'QUIZ' | 'ASSIGNMENT' | 'LIVESTREAM' | 'FORUM';
-  contentUrl?: string;
-  duration?: number;
+  resourceUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
   orderIndex?: number;
   visible?: boolean;
-  // Grade fields
   maxScore?: number;
   scoreWeight?: number;
   gradeType?: 'PROCESS' | 'FINAL';
   isShowInGradeTable?: boolean;
-  // Settings JSON for quiz/assignment config
+  gradeCompositionId?: number;
+  estimatedDuration?: number;
+  isAiGenerated?: boolean;
+  aiPrompt?: string;
   settings?: QuizSettings;
 }
 
@@ -266,8 +305,8 @@ export interface CopiedSectionInfo {
   moduleCount: number;
 }
 
-// Course base URL (no /v1 prefix)
-const COURSE_API = environment.apiUrl.replace('/v1', '');
+// Course base URL - uses courseApiUrl from environment for cleaner code
+const COURSE_API = environment.courseApiUrl;
 
 @Injectable({
   providedIn: 'root'
@@ -450,6 +489,79 @@ export class CourseService {
       `${COURSE_API}/courses/${targetCourseId}/copy-content`,
       request
     ).pipe(map(res => res.data));
+  }
+
+  // ============ AI Import APIs ============
+
+  /**
+   * Lấy cấu trúc khóa học với sections và modules
+   */
+  getCourseStructure(courseId: number): Observable<any> {
+    return this.http.get<ApiResponse<any>>(`${COURSE_API}/courses/${courseId}/structure`)
+      .pipe(map(res => res.data));
+  }
+
+  /**
+   * Import cấu trúc khóa học từ AI vào DB (Upsert - tạo mới hoặc cập nhật)
+   */
+  importAiCourseStructure(request: {
+    courseId: number;
+    aiPrompt: string;
+    aiModel: string;
+    replaceExisting?: boolean;
+    course: {
+      courseName: string;
+      description: string;
+      sections: Array<{
+        id?: number; // ID nếu đang update section có sẵn
+        title: string;
+        description: string;
+        orderIndex: number;
+        modules: Array<{
+          id?: number; // ID nếu đang update module có sẵn
+          title: string;
+          type: string;
+          description: string;
+          orderIndex: number;
+          estimatedDuration?: number;
+          instructions?: string; // Markdown instructions cho mọi loại module
+          questions?: Array<{ // Danh sách câu hỏi nếu là QUIZ
+            content: string;
+            type: string;
+            level: string;
+            explanation?: string;
+            options: Array<{
+              content: string;
+              isCorrect: boolean;
+            }>;
+          }>;
+        }>;
+      }>;
+    };
+  }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${COURSE_API}/ai-import/course-structure`, request);
+  }
+
+  /**
+   * Import câu hỏi quiz từ AI vào ngân hàng câu hỏi
+   */
+  importAiQuizQuestions(request: {
+    subjectId: number;
+    chapterId?: number;
+    aiPrompt: string;
+    aiModel: string;
+    questions: Array<{
+      content: string;
+      type: string;
+      level: string;
+      explanation?: string;
+      options: Array<{
+        content: string;
+        isCorrect: boolean;
+      }>;
+    }>;
+  }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${COURSE_API}/ai-import/quiz`, request);
   }
 
   // ============ Helper Methods ============

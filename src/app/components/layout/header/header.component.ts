@@ -734,7 +734,6 @@ export class HeaderComponent {
   }
 
   onSearch() {
-    console.log('Search:', this.searchQuery);
   }
 
   onLogout() {

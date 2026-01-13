@@ -28,11 +28,16 @@ export interface BulkModuleConfigRequest {
 
 export interface StudentGradeResponse {
   studentId: number;
+  enrollmentId: number;
   studentCode: string;
   fullName: string;
   email: string;
   grades: { [moduleId: string]: number | null };
   averageScore: number | null;
+  attendanceScore?: number | null;
+  bonusScore?: number | null;
+  letterGrade?: string;
+  isBanned?: boolean;
 }
 
 export interface CourseGradesResponse {
@@ -116,6 +121,7 @@ export interface CalculatedGradeResponse {
   totalScore: number;           // Điểm học phần
   letterGrade: string;          // Điểm chữ
   gpaScore: number;             // Điểm hệ 4
+  isBanned?: boolean;           // Đánh dấu cấm thi
 }
 
 /**
@@ -132,12 +138,12 @@ export interface UpdateCourseWeightsRequest {
   providedIn: 'root'
 })
 export class GradeService {
-  // Use base API without /v1 since grades API is at /api/courses/...
-  private apiUrl = environment.apiUrl.replace('/v1', '');
+  // Use courseApiUrl since grades API is at /api/courses/...
+  private apiUrl = environment.courseApiUrl;
   // Use v1 API for module endpoints
   private apiUrlV1 = environment.apiUrl;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   /**
    * Lấy bảng điểm của một khóa học
@@ -233,6 +239,16 @@ export class GradeService {
       `${this.apiUrl}/grades/course/${courseId}`
     ).pipe(
       map(response => response.data)
+    );
+  }
+
+  /**
+   * Xuất bảng điểm ra file Excel
+   */
+  exportGradesToExcel(courseId: number): Observable<Blob> {
+    return this.http.get(
+      `${this.apiUrl}/courses/${courseId}/grades/export`,
+      { responseType: 'blob' }
     );
   }
 }

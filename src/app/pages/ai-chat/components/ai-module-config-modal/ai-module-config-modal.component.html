@@ -1,0 +1,330 @@
+<div class="modal-overlay" *ngIf="show" (click)="onClose()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h2>
+        <span *ngIf="moduleConfigContext?.module?.type === 'VIDEO'">🎬 Cấu hình Video</span>
+        <span *ngIf="moduleConfigContext?.module?.type === 'DOCUMENT'">📄 Cấu hình Tài liệu</span>
+        <span *ngIf="moduleConfigContext?.module?.type === 'TEXT'">📝 Cấu hình Văn bản</span>
+        <span *ngIf="moduleConfigContext?.module?.type === 'QUIZ'">❓ Cấu hình Quiz</span>
+        <span *ngIf="moduleConfigContext?.module?.type === 'ASSIGNMENT'">📋 Cấu hình Bài tập</span>
+      </h2>
+      <button class="modal__close" (click)="onClose()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal__body" *ngIf="moduleConfigContext">
+      <!-- Common fields -->
+      <div class="form-group">
+        <label>Tiêu đề module</label>
+        <input type="text" [(ngModel)]="moduleConfigContext.module.title" placeholder="Nhập tiêu đề...">
+      </div>
+      
+      <div class="form-group">
+        <label>Mô tả</label>
+        <textarea [(ngModel)]="moduleConfigContext.module.description" rows="2" placeholder="Mô tả module..."></textarea>
+      </div>
+
+      <!-- VIDEO Configuration -->
+      <ng-container *ngIf="moduleConfigContext.module.type === 'VIDEO'">
+        <div class="form-group">
+          <label>🔗 URL Video (YouTube, Vimeo...)</label>
+          <input type="url" [(ngModel)]="moduleConfigContext.module.videoUrl" placeholder="https://youtube.com/watch?v=...">
+        </div>
+        <div class="form-group">
+          <label>⏱️ Thời lượng (phút)</label>
+          <input type="number" [(ngModel)]="moduleConfigContext.module.videoDuration" placeholder="30" min="1">
+        </div>
+      </ng-container>
+
+      <!-- DOCUMENT Configuration -->
+      <ng-container *ngIf="moduleConfigContext.module.type === 'DOCUMENT'">
+        <div class="form-group">
+          <label>🔗 URL tài liệu</label>
+          <input type="url" [(ngModel)]="moduleConfigContext.module.documentUrl" placeholder="https://drive.google.com/...">
+        </div>
+        <div class="form-group">
+          <label>📎 Hoặc tên file</label>
+          <input type="text" [(ngModel)]="moduleConfigContext.module.documentFile" placeholder="document.pdf">
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="moduleConfigContext.module.type === 'TEXT'">
+        <div class="form-group ai-chat-input">
+          <label>🤖 AI tạo nội dung</label>
+          <div class="ai-input-row">
+            <input 
+              type="text" 
+              [(ngModel)]="textAiPrompt" 
+              placeholder="VD: Tạo bài giảng về OOP trong Java, bao gồm các ví dụ thực tế..."
+              [disabled]="isGeneratingTextContent"
+              (keyup.enter)="generateTextContentWithAI()">
+            <button 
+              class="ai-generate-btn" 
+              [disabled]="!textAiPrompt.trim() || isGeneratingTextContent"
+              (click)="generateTextContentWithAI()">
+              <span *ngIf="!isGeneratingTextContent">✨ Tạo</span>
+              <span *ngIf="isGeneratingTextContent" class="spinner-small"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="editor-header">
+            <label>📝 Nội dung văn bản (hỗ trợ Markdown)</label>
+            <div class="view-toggle">
+              <button 
+                [class.active]="textViewMode === 'edit'"
+                (click)="textViewMode = 'edit'">
+                Chỉnh sửa
+              </button>
+              <button 
+                [class.active]="textViewMode === 'preview'"
+                (click)="textViewMode = 'preview'">
+                Xem trước
+              </button>
+            </div>
+          </div>
+          <textarea 
+            *ngIf="textViewMode === 'edit'"
+            [(ngModel)]="moduleConfigContext.module.textContent" 
+            rows="12" 
+            placeholder="Nhập nội dung bài học..."></textarea>
+          <div 
+            *ngIf="textViewMode === 'preview'" 
+            class="markdown-preview">
+            <markdown [data]="moduleConfigContext.module.textContent || '*Chưa có nội dung*'"></markdown>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="moduleConfigContext.module.type === 'QUIZ'">
+        <!-- Visibility Toggle -->
+        <div class="form-group toggle-group">
+          <label class="toggle-label">
+            <span>👁️ Hiển thị Quiz</span>
+            <div class="toggle-switch" [class.active]="moduleConfigContext.module.isVisible !== false" (click)="moduleConfigContext.module.isVisible = !moduleConfigContext.module.isVisible">
+              <div class="toggle-slider"></div>
+            </div>
+            <span class="toggle-status">{{ moduleConfigContext.module.isVisible !== false ? 'Đang hiện' : 'Đang ẩn' }}</span>
+          </label>
+        </div>
+
+        <!-- Time settings -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>⏱️ Thời gian làm (phút)</label>
+            <input type="number" [(ngModel)]="moduleConfigContext.module.quizTimeLimit" placeholder="15" min="1">
+          </div>
+          <div class="form-group">
+            <label>🎯 Điểm đạt (%)</label>
+            <input type="number" [(ngModel)]="moduleConfigContext.module.quizPassingScore" placeholder="60" min="0" max="100">
+          </div>
+        </div>
+
+        <!-- Open/Close DateTime -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>🔓 Thời gian mở</label>
+            <input type="datetime-local" [(ngModel)]="moduleConfigContext.module.quizOpenTime">
+          </div>
+          <div class="form-group">
+            <label>🔒 Thời gian đóng</label>
+            <input type="datetime-local" [(ngModel)]="moduleConfigContext.module.quizCloseTime">
+          </div>
+        </div>
+
+        <!-- Additional settings -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>🔄 Số lần làm lại</label>
+            <input type="number" [(ngModel)]="moduleConfigContext.module.quizMaxAttempts" placeholder="1" min="1">
+          </div>
+          <div class="form-group">
+            <label>🎲 Trộn câu hỏi</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="moduleConfigContext.module.quizShuffleQuestions">
+                <span>Trộn thứ tự</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Chat để tạo câu hỏi -->
+        <div class="quiz-ai-chat">
+          <div class="quiz-ai-chat__header">
+            <span>🤖 Tạo câu hỏi bằng AI</span>
+          </div>
+          <div class="quiz-ai-chat__input">
+            <input 
+              type="text" 
+              [(ngModel)]="quizAiPrompt" 
+              (keydown.enter)="generateQuizQuestionsWithAI()"
+              placeholder="VD: Tạo 5 câu hỏi về vòng lặp trong Python..."
+              [disabled]="isGeneratingQuizQuestions">
+            <button 
+              class="quiz-ai-chat__btn" 
+              (click)="generateQuizQuestionsWithAI()"
+              [disabled]="!quizAiPrompt.trim() || isGeneratingQuizQuestions">
+              <svg *ngIf="!isGeneratingQuizQuestions" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8V4H8"/>
+                <rect width="16" height="12" x="4" y="8" rx="2"/>
+                <path d="M2 14h2"/>
+                <path d="M20 14h2"/>
+                <path d="M15 13v2"/>
+                <path d="M9 13v2"/>
+              </svg>
+              <div *ngIf="isGeneratingQuizQuestions" class="spinner-small"></div>
+              {{ isGeneratingQuizQuestions ? 'Đang tạo...' : 'Tạo' }}
+            </button>
+          </div>
+          <div class="quiz-ai-chat__suggestions">
+            <button (click)="quizAiPrompt = 'Tạo 5 câu hỏi dễ về ' + moduleConfigContext.module.title">5 câu dễ</button>
+            <button (click)="quizAiPrompt = 'Tạo 5 câu hỏi khó về ' + moduleConfigContext.module.title">5 câu khó</button>
+            <button (click)="quizAiPrompt = 'Tạo 3 câu hỏi thực hành về ' + moduleConfigContext.module.title">3 câu thực hành</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-header">
+            <label>📝 Câu hỏi ({{ moduleConfigContext.module.quizQuestions?.length || 0 }})</label>
+            <button class="add-btn" (click)="addQuizQuestionToModule()">+ Thêm thủ công</button>
+          </div>
+          
+          <div class="quiz-questions-list">
+            <div class="quiz-question-item" *ngFor="let q of moduleConfigContext.module.quizQuestions; let qi = index; trackBy: trackByIndex">
+              <div class="quiz-question-header">
+                <span>Câu {{ qi + 1 }}</span>
+                <button class="icon-btn icon-btn--danger" (click)="removeQuizQuestionFromModule(qi)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <input type="text" [(ngModel)]="q.content" placeholder="Nhập câu hỏi..." class="full-input">
+              <div class="quiz-options">
+                <div class="quiz-option-input" *ngFor="let opt of q.options; let oi = index">
+                  <input type="radio" [name]="'correct-' + qi" [checked]="opt.isCorrect" (change)="setCorrectOption(q, oi)">
+                  <input type="text" [(ngModel)]="opt.content" [placeholder]="'Đáp án ' + getOptionLetter(oi)">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ASSIGNMENT Configuration -->
+      <ng-container *ngIf="moduleConfigContext.module.type === 'ASSIGNMENT'">
+        <div class="form-row">
+          <div class="form-group">
+            <label>📅 Deadline (ngày)</label>
+            <input type="number" [(ngModel)]="moduleConfigContext.module.assignmentDeadlineDays" placeholder="7" min="1">
+          </div>
+          <div class="form-group">
+            <label>💯 Điểm tối đa</label>
+            <input type="number" [(ngModel)]="moduleConfigContext.module.assignmentMaxScore" placeholder="100" min="1">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-header">
+            <label>✅ Yêu cầu</label>
+            <button class="add-btn" (click)="addAssignmentRequirement()">+ Thêm yêu cầu</button>
+          </div>
+          
+          <div class="requirements-list">
+            <div class="requirement-item" *ngFor="let req of moduleConfigContext.module.assignmentRequirements; let ri = index; trackBy: trackByIndex">
+              <input type="text" [(ngModel)]="moduleConfigContext.module.assignmentRequirements![ri]" placeholder="Nhập yêu cầu...">
+              <button class="icon-btn icon-btn--danger" (click)="removeAssignmentRequirement(ri)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assignment Instructions with AI + Markdown Editor -->
+        <div class="form-group markdown-editor-section">
+          <div class="form-header">
+            <label>📝 Hướng dẫn chi tiết (Markdown)</label>
+            <button class="toggle-view-btn" (click)="toggleAssignmentViewMode()">
+              <span *ngIf="assignmentViewMode === 'edit'">👁️ Preview</span>
+              <span *ngIf="assignmentViewMode === 'preview'">✏️ Edit</span>
+            </button>
+          </div>
+
+          <!-- AI Chat Input -->
+          <div class="ai-chat-input-box">
+            <div class="ai-prompt-row">
+              <input 
+                type="text" 
+                [(ngModel)]="assignmentAiPrompt" 
+                placeholder="Nhập yêu cầu để AI tạo hướng dẫn... VD: Tạo hướng dẫn nộp bài, tiêu chí chấm điểm..."
+                (keyup.enter)="generateAssignmentInstructionsWithAI()"
+                [disabled]="isGeneratingAssignmentInstructions"
+              >
+              <button 
+                class="ai-generate-btn"
+                (click)="generateAssignmentInstructionsWithAI()"
+                [disabled]="!assignmentAiPrompt?.trim() || isGeneratingAssignmentInstructions"
+              >
+                <span *ngIf="!isGeneratingAssignmentInstructions">🤖 Tạo với AI</span>
+                <span *ngIf="isGeneratingAssignmentInstructions">⏳ Đang tạo...</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Edit Mode: Textarea -->
+          <div class="markdown-edit-view" *ngIf="assignmentViewMode === 'edit'">
+            <textarea 
+              [(ngModel)]="moduleConfigContext.module.assignmentInstructions"
+              placeholder="Nhập nội dung hướng dẫn bằng Markdown...
+
+# Tiêu đề
+## Mục tiêu
+- Điểm 1
+- Điểm 2
+
+## Yêu cầu
+1. Yêu cầu 1
+2. Yêu cầu 2
+
+**In đậm**, *in nghiêng*
+
+```python
+# Code mẫu
+print('Hello')
+```"
+              rows="12"
+            ></textarea>
+            <div class="markdown-hint">
+              💡 Hỗ trợ Markdown: # Heading, **bold**, *italic*, - list, ```code```
+            </div>
+          </div>
+
+          <!-- Preview Mode: Rendered Markdown -->
+          <div class="markdown-preview-view" *ngIf="assignmentViewMode === 'preview'">
+            <div class="markdown-preview-content" *ngIf="moduleConfigContext.module.assignmentInstructions?.trim(); else noContent">
+              <markdown [data]="moduleConfigContext.module.assignmentInstructions"></markdown>
+            </div>
+            <ng-template #noContent>
+              <div class="empty-preview">
+                <span>📄</span>
+                <p>Chưa có nội dung. Dùng AI hoặc nhập thủ công ở chế độ Edit.</p>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="modal__footer">
+      <button class="btn btn--secondary" (click)="onClose()">Hủy</button>
+      <button class="btn btn--primary" (click)="onSave()">Lưu cấu hình</button>
+    </div>
+  </div>
+</div>

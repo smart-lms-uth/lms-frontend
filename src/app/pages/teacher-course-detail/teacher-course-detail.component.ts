@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { CourseService, Course, Section, Module } from '../../services/course.service';
+import { ActivityService } from '../../services/activity.service';
 import { EditModeService } from '../../services/edit-mode.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, ProgressComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
@@ -44,28 +45,28 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   sidebarOpen = signal(false);
   expandedSections = signal<number[]>([]);
   originalSectionOrder = signal<number[]>([]);
-  
+
   // Tab management
   activeTab = signal<'course' | 'students' | 'grades' | 'liveclass'>('course');
-  
+
   // Inline editing
   editingSectionId = signal<number | null>(null);
   editingTitle: string = '';
   editingDescription: string = '';
   hasUnsavedChanges = signal(false);
-  
+
   // Add section modal
   showAddSectionModal = signal(false);
   newSectionTitle: string = '';
   newSectionDescription: string = '';
   newSectionVisible: boolean = true;
-  
+
   // Copy content dialog
   showCopyContentDialog = signal(false);
   currentInstructorId = signal<number>(0);
-  
+
   editModeService = inject(EditModeService);
-  
+
   private editModeEffect = effect(() => {
     // When edit mode is turned off, check for unsaved changes
     if (!this.editModeService.editMode() && this.hasUnsavedChanges()) {
@@ -86,9 +87,10 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   constructor(
     private authService: AuthService,
     public courseService: CourseService,
+    private activityService: ActivityService,
     private router: Router,
     private route: ActivatedRoute
-  ) {}
+  ) { }
 
   ngOnInit() {
     // Set instructor ID from current user
@@ -96,13 +98,13 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     if (currentUser) {
       this.currentInstructorId.set(currentUser.id);
     }
-    
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.courseId.set(parseInt(id));
       this.loadCourse();
       this.loadSections();
-      
+
       // Read tab from query param
       const tab = this.route.snapshot.queryParamMap.get('tab');
       if (tab === 'grades') {
@@ -119,10 +121,18 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   async loadCourse() {
     this.loading.set(true);
-    
+
     try {
       const course = await this.courseService.getCourseById(this.courseId()!).toPromise();
       this.course.set(course || null);
+
+      // Track course view activity
+      if (course) {
+        this.activityService.trackCourseView(
+          this.courseId()!.toString(),
+          course.subjectName || 'Khóa học'
+        );
+      }
     } catch (error) {
       console.error('Error loading course:', error);
       this.course.set(null);
@@ -133,7 +143,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   async loadSections() {
     this.sectionsLoading.set(true);
-    
+
     try {
       const sections = await this.courseService.getSectionsByCourse(this.courseId()!).toPromise();
       this.sections.set(sections || []);
@@ -153,7 +163,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   toggleSection(sectionId: number) {
     const isExpanded = this.expandedSections().includes(sectionId);
-    
+
     this.expandedSections.update(ids => {
       if (ids.includes(sectionId)) {
         return ids.filter(id => id !== sectionId);
@@ -161,25 +171,25 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
         return [...ids, sectionId];
       }
     });
-    
+
     // Load modules when expanding
     if (!isExpanded) {
       this.loadModulesForSection(sectionId);
     }
   }
-  
+
   async loadModulesForSection(sectionId: number) {
     try {
       const modules = await this.courseService.getModulesBySection(sectionId).toPromise();
       // Update section with modules
-      this.sections.update(sections => 
+      this.sections.update(sections =>
         sections.map(s => s.id === sectionId ? { ...s, modules: modules || [] } : s)
       );
     } catch (error) {
       console.error('Error loading modules for section:', sectionId, error);
     }
   }
-  
+
   getModuleIcon(type: string): string {
     const icons: Record<string, string> = {
       'VIDEO': 'play',
@@ -191,7 +201,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     };
     return icons[type] || 'file';
   }
-  
+
   getModuleTypeLabel(type: string): string {
     const labels: Record<string, string> = {
       'VIDEO': 'Video',
@@ -234,9 +244,9 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   formatDate(dateStr: string): string {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('vi-VN', { 
-      day: '2-digit', 
-      month: '2-digit', 
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -245,6 +255,16 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   editCourse() {
     this.router.navigate(['/teacher/courses', this.courseId(), 'edit']);
+  }
+
+  editWithAI() {
+    // Navigate to AI Chat with course context for editing
+    this.router.navigate(['/ai-chat'], {
+      queryParams: {
+        mode: 'edit-course',
+        courseId: this.courseId()
+      }
+    });
   }
 
   addSection() {
@@ -329,7 +349,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   saveOrder() {
     const sectionIds = this.sections().map(s => s.id);
-    
+
     this.courseService.reorderSections(this.courseId()!, sectionIds).subscribe({
       next: (updatedSections) => {
         // Update original order after successful save
@@ -354,7 +374,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     if (event) {
       event.stopPropagation();
     }
-    
+
     // If already editing another section, save it first
     const currentEditingId = this.editingSectionId();
     if (currentEditingId && currentEditingId !== section.id) {
@@ -363,11 +383,11 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
         this.finishInlineEdit(currentSection);
       }
     }
-    
+
     this.editingSectionId.set(section.id);
     this.editingTitle = section.title;
     this.editingDescription = section.description || '';
-    
+
     // Focus on title input after a short delay
     setTimeout(() => {
       const input = document.querySelector('.inline-edit-title') as HTMLInputElement;
@@ -387,12 +407,12 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
   async finishInlineEdit(section: Section) {
     // Don't save if already cancelled
     if (this.editingSectionId() !== section.id) return;
-    
+
     // Check if there are changes
-    const hasChanges = 
-      this.editingTitle !== section.title || 
+    const hasChanges =
+      this.editingTitle !== section.title ||
       this.editingDescription !== (section.description || '');
-    
+
     if (hasChanges && this.editingTitle.trim()) {
       try {
         // Call API to save section
@@ -400,25 +420,21 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
           title: this.editingTitle.trim(),
           description: this.editingDescription.trim()
         }).toPromise();
-        
+
         // Update local state after successful API call
-        this.sections.update(sections => 
-          sections.map(s => 
-            s.id === section.id 
+        this.sections.update(sections =>
+          sections.map(s =>
+            s.id === section.id
               ? { ...s, title: this.editingTitle.trim(), description: this.editingDescription.trim() }
               : s
           )
         );
-        
-        console.log('Section saved successfully:', section.id);
-      } catch (error) {
-        console.error('Error saving section:', error);
+      } catch {
         alert('Có lỗi xảy ra khi lưu!');
-        // Reload to restore original data on error
         await this.loadSections();
       }
     }
-    
+
     // Clear editing state
     this.editingSectionId.set(null);
     this.editingTitle = '';
@@ -485,11 +501,11 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     const items: BreadcrumbItem[] = [
       { label: 'Dashboard', link: '/teacher/dashboard' }
     ];
-    
+
     if (this.course()) {
       items.push({ label: this.course()!.subjectName });
     }
-    
+
     return items;
   }
 

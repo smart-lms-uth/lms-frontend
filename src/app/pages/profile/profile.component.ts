@@ -149,6 +149,13 @@ export class ProfileComponent implements OnInit {
     }
   }
 
+  getBackLink(): string {
+    const role = this.user()?.role?.toUpperCase();
+    if (role === 'TEACHER') return '/teacher/dashboard';
+    if (role === 'ADMIN') return '/admin/dashboard';
+    return '/dashboard';
+  }
+
   onSubmit(): void {
     if (this.profileForm.valid) {
       this.isSubmitting.set(true);

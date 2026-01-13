@@ -110,8 +110,11 @@ import { BadgeComponent } from '../ui/badge/badge.component';
                   <app-badge [variant]="getResourceBadgeVariant(activity.resourceType)" size="sm">
                     {{ getResourceTypeLabel(activity.resourceType) }}
                   </app-badge>
+                  <span class="activity-time">
+                    {{ activity.timestampFormatted }}
+                  </span>
                   <span class="activity-time" *ngIf="activity.durationMs">
-                    Thời gian: {{ formatDuration(activity.durationMs) }}
+                    • {{ formatDuration(activity.durationMs) }}
                   </span>
                 </div>
               </div>
@@ -464,7 +467,7 @@ export class StudentActivityModalComponent implements OnInit, OnChanges {
     if (!this.courseId || !this.studentId) return;
 
     this.loading.set(true);
-    
+
     this.activityService.getCourseStudentActivities(
       this.courseId,
       this.studentId,
@@ -534,7 +537,7 @@ export class StudentActivityModalComponent implements OnInit, OnChanges {
     const seconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m`;
     } else if (minutes > 0) {

@@ -1,0 +1,66 @@
+<app-card variant="default" class="modules-card">
+  <div class="card-header">
+    <h2 class="card-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      Danh sách Module
+    </h2>
+    <div class="card-header-actions" *ngIf="isEditMode">
+      <button class="btn btn--primary btn--sm" (click)="onAddModule()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Thêm module
+      </button>
+      <button *ngIf="hasOrderChanged" class="btn btn--sm btn--success" (click)="onSaveOrder()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Lưu thứ tự
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" class="loading-inline">
+    <div class="spinner-small"></div>
+    <span>Đang tải modules...</span>
+  </div>
+
+  <div *ngIf="!isLoading && modules.length === 0" class="empty-modules">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+    </svg>
+    <p>Chưa có module nào được thêm</p>
+    <button *ngIf="isEditMode" class="btn btn--primary" (click)="onAddModule()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      Thêm module đầu tiên
+    </button>
+  </div>
+
+  <div *ngIf="!isLoading && modules.length > 0"
+       class="modules-list"
+       cdkDropList
+       [cdkDropListDisabled]="!isEditMode"
+       (cdkDropListDropped)="onDrop($event)">
+    <div *ngFor="let module of modules; let i = index; trackBy: trackByModule"
+         cdkDrag
+         [cdkDragDisabled]="!isEditMode">
+      <app-module-item
+        [module]="module"
+        [index]="i"
+        [isEditMode]="isEditMode"
+        (view)="onViewModule($event)"
+        (edit)="onEditModule($event)"
+        (delete)="onDeleteModule($event)"
+        (toggleVisibility)="onToggleVisibility($event)">
+      </app-module-item>
+    </div>
+  </div>
+</app-card>

@@ -2,14 +2,16 @@ import { Component, OnInit, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { CourseService, Course, Section, Module, QuizSettings, RandomQuestionConfig } from '../../services/course.service';
+import { CourseService, Course, Section, Module, QuizSettings, RandomQuestionConfig, AssignmentSettings } from '../../services/course.service';
 import { GradeService, GradeResponse } from '../../services/grade.service';
 import { SubmissionService, AssignmentSubmission } from '../../services/submission.service';
 import { QuizService } from '../../services/quiz.service';
 import { QuestionBankService, Chapter, Question } from '../../services/question-bank.service';
 import { EditModeService } from '../../services/edit-mode.service';
+import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
+import { MarkdownPipe } from '../../pipes/markdown.pipe';
 
 // Interface cho submission của sinh viên
 export interface StudentSubmission {
@@ -49,7 +51,8 @@ export interface StudentSubmission {
     MainLayoutComponent,
     CardComponent,
     BadgeComponent,
-    BreadcrumbComponent
+    BreadcrumbComponent,
+    MarkdownPipe
   ],
   templateUrl: './teacher-module-detail.component.html',
   styleUrls: ['./teacher-module-detail.component.scss']
@@ -58,64 +61,68 @@ export class TeacherModuleDetailComponent implements OnInit {
   loading = signal(true);
   submissionsLoading = signal(false);
   savingGrade = signal(false);
-  
+
   course = signal<Course | null>(null);
   section = signal<Section | null>(null);
   module = signal<Module | null>(null);
   submissions = signal<StudentSubmission[]>([]);
-  
+
   courseId = signal<number | null>(null);
   sectionId = signal<number | null>(null);
   moduleId = signal<number | null>(null);
-  
+
   // Edit mode for module settings
   isEditingSettings = signal(false);
-  
+
   // Module settings form (extended)
   editTitle = '';
   editDescription = '';
-  editContentUrl = '';
+  editResourceUrl = '';
   editMaxScore = 100;
   editScoreWeight = 10;
   editGradeType: 'PROCESS' | 'FINAL' | '' = '';
   editDueDate = '';
   editVisible = true;
   editIsShowInGradeTable = true;
-  
+
   // Assignment/Quiz specific settings
   editAllowLateSubmission = false;
   editMaxAttempts = 1;
   editTimeLimit = 0; // for quiz in minutes
   editShuffleQuestions = false;
   editShowCorrectAnswers = false;
-  
+
+  // Assignment instructions (markdown)
+  editInstructions = '';
+  instructionsPreviewMode = signal(false); // false = code, true = preview
+
   // Full Quiz Settings (editable in edit mode)
   quizSettings = signal<QuizSettings | null>(null);
   quizQuestionsCount = signal<number>(0);
-  
+
   // Editable Quiz Settings - copy of quizSettings for editing
   editQuizSettings: QuizSettings = this.getDefaultQuizSettings();
-  
+
   // Question configuration for quiz
   availableChapters = signal<Chapter[]>([]);
   chaptersLoading = signal(false);
   selectedChapterIds: number[] = [];
-  
+
   // Active tab: 'config' or 'submissions'
   activeTab = signal<'config' | 'submissions'>('config');
-  
+
   // Selected submission for detail view
   selectedSubmission = signal<StudentSubmission | null>(null);
-  
+
   // Grading form
   gradeScore = 0;
   gradeFeedback = '';
-  
+
   // Filter & Sort
   filterStatus = signal<string>('all');
   sortBy = signal<'name' | 'score' | 'date'>('name');
   sortDirection = signal<'asc' | 'desc'>('asc');
-  
+
   editModeService = inject(EditModeService);
 
   constructor(
@@ -124,16 +131,17 @@ export class TeacherModuleDetailComponent implements OnInit {
     private submissionService: SubmissionService,
     private quizService: QuizService,
     private questionBankService: QuestionBankService,
+    private activityService: ActivityService,
     private router: Router,
     private route: ActivatedRoute
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.route.paramMap.subscribe(params => {
       const courseId = params.get('courseId');
       const sectionId = params.get('sectionId');
       const moduleId = params.get('moduleId');
-      
+
       if (courseId && sectionId && moduleId) {
         this.courseId.set(parseInt(courseId));
         this.sectionId.set(parseInt(sectionId));
@@ -147,7 +155,7 @@ export class TeacherModuleDetailComponent implements OnInit {
 
   async loadData() {
     this.loading.set(true);
-    
+
     try {
       // Load course info
       const course = await this.courseService.getCourseById(this.courseId()!).toPromise();
@@ -162,18 +170,25 @@ export class TeacherModuleDetailComponent implements OnInit {
           const modules = await this.courseService.getModulesBySection(section.id).toPromise();
           section.modules = modules || [];
           this.section.set(section);
-          
+
           // Find the current module
           const module = section.modules?.find(m => m.id === this.moduleId());
           if (module) {
             this.module.set(module);
             this.initEditForm(module);
-            
+
+            // Track module view activity
+            this.activityService.trackLessonView(
+              this.moduleId()!.toString(),
+              module.title || 'Module',
+              this.courseId()!.toString()
+            );
+
             // Load quiz questions count if QUIZ type
             if (module.type === 'QUIZ') {
               this.loadQuizInfo(module);
             }
-            
+
             // Don't auto-load submissions, let user click on "Bài nộp" tab
           }
         }
@@ -188,13 +203,13 @@ export class TeacherModuleDetailComponent implements OnInit {
   initEditForm(module: Module) {
     this.editTitle = module.title;
     this.editDescription = module.description || '';
-    this.editContentUrl = module.contentUrl || '';
+    this.editResourceUrl = module.resourceUrl || '';
     this.editMaxScore = (module as any).maxScore || 100;
     this.editScoreWeight = (module as any).scoreWeight || 10;
     this.editGradeType = (module as any).gradeType || '';
     this.editVisible = module.visible;
     this.editIsShowInGradeTable = (module as any).isShowInGradeTable ?? true;
-    
+
     // Parse settings JSON for assignment/quiz specific settings
     const settings = this.parseModuleSettings(module);
     this.editDueDate = settings.dueDate || '';
@@ -203,13 +218,14 @@ export class TeacherModuleDetailComponent implements OnInit {
     this.editTimeLimit = settings.timeLimit || 0;
     this.editShuffleQuestions = settings.shuffleQuestions || false;
     this.editShowCorrectAnswers = settings.showCorrectAnswers || false;
+    this.editInstructions = settings.instructions || '';
   }
 
   parseModuleSettings(module: Module): any {
     try {
       if ((module as any).settings) {
-        return typeof (module as any).settings === 'string' 
-          ? JSON.parse((module as any).settings) 
+        return typeof (module as any).settings === 'string'
+          ? JSON.parse((module as any).settings)
           : (module as any).settings;
       }
     } catch (e) {
@@ -225,7 +241,7 @@ export class TeacherModuleDetailComponent implements OnInit {
       const mergedSettings = { ...this.getDefaultQuizSettings(), ...settings };
       this.quizSettings.set(mergedSettings);
       this.editQuizSettings = { ...mergedSettings };
-      
+
       // Load quiz questions count
       const questions = await this.quizService.getQuizQuestions(module.id).toPromise();
       this.quizQuestionsCount.set(questions?.length || 0);
@@ -275,12 +291,12 @@ export class TeacherModuleDetailComponent implements OnInit {
   async loadChapters() {
     const subjectId = this.course()?.subjectId;
     if (!subjectId) return;
-    
+
     this.chaptersLoading.set(true);
     try {
       const chapters = await this.questionBankService.getChaptersBySubject(subjectId).toPromise();
       this.availableChapters.set(chapters || []);
-      
+
       // Initialize selectedChapterIds from editQuizSettings
       if (this.editQuizSettings.randomConfig?.fromChapterIds) {
         this.selectedChapterIds = [...this.editQuizSettings.randomConfig.fromChapterIds];
@@ -363,12 +379,12 @@ export class TeacherModuleDetailComponent implements OnInit {
 
   async loadSubmissions() {
     if (!this.courseId() || !this.moduleId()) return;
-    
+
     this.submissionsLoading.set(true);
-    
+
     try {
       const moduleType = this.module()?.type;
-      
+
       // Nếu là ASSIGNMENT, load từ SubmissionService
       if (moduleType === 'ASSIGNMENT') {
         await this.loadAssignmentSubmissions();
@@ -414,12 +430,12 @@ export class TeacherModuleDetailComponent implements OnInit {
 
       // Merge: lấy tất cả sinh viên enrolled, ghép với bài nộp (nếu có)
       const submissions: StudentSubmission[] = [];
-      
+
       if (gradesData?.students) {
         gradesData.students.forEach(student => {
           const sub = submissionMap.get(student.studentId);
           const savedScore = gradeMap.get(student.studentId);
-          
+
           if (sub) {
             // Sinh viên đã nộp bài - lấy điểm từ gradesData (CourseGrade), không từ submission
             const hasScore = savedScore !== null && savedScore !== undefined;
@@ -463,7 +479,7 @@ export class TeacherModuleDetailComponent implements OnInit {
           }
         });
       }
-      
+
       this.submissions.set(submissions);
     } catch (error) {
       console.error('Error loading assignment submissions:', error);
@@ -486,16 +502,16 @@ export class TeacherModuleDetailComponent implements OnInit {
   async loadGradeSubmissions() {
     // Get grades data from course
     const gradesData = await this.gradeService.getCourseGrades(this.courseId()!).toPromise();
-    
+
     if (gradesData) {
       const moduleIdStr = this.moduleId()!.toString();
       const moduleInfo = gradesData.modules.find(m => m.id === this.moduleId());
-      
+
       // Transform students data to submissions
       const submissions: StudentSubmission[] = gradesData.students.map(student => {
         const score = student.grades[moduleIdStr];
         const hasScore = score !== null && score !== undefined;
-        
+
         return {
           studentId: student.studentId,
           studentCode: student.studentCode,
@@ -511,7 +527,7 @@ export class TeacherModuleDetailComponent implements OnInit {
           status: hasScore ? 'GRADED' : 'NOT_SUBMITTED'
         };
       });
-      
+
       this.submissions.set(submissions);
     }
   }
@@ -519,16 +535,16 @@ export class TeacherModuleDetailComponent implements OnInit {
   // Computed values
   get filteredSubmissions(): StudentSubmission[] {
     let result = [...this.submissions()];
-    
+
     // Filter by status
     if (this.filterStatus() !== 'all') {
       result = result.filter(s => s.status === this.filterStatus());
     }
-    
+
     // Sort
     result.sort((a, b) => {
       let comparison = 0;
-      
+
       switch (this.sortBy()) {
         case 'name':
           comparison = a.fullName.localeCompare(b.fullName);
@@ -542,10 +558,10 @@ export class TeacherModuleDetailComponent implements OnInit {
           comparison = dateA - dateB;
           break;
       }
-      
+
       return this.sortDirection() === 'asc' ? comparison : -comparison;
     });
-    
+
     return result;
   }
 
@@ -564,7 +580,7 @@ export class TeacherModuleDetailComponent implements OnInit {
   calculateAverageScore(submissions: StudentSubmission[]): number | null {
     const graded = submissions.filter(s => s.score !== null);
     if (graded.length === 0) return null;
-    
+
     const total = graded.reduce((sum, s) => sum + (s.score || 0), 0);
     return Math.round((total / graded.length) * 100) / 100;
   }
@@ -607,35 +623,62 @@ export class TeacherModuleDetailComponent implements OnInit {
     }
   }
 
+  // Toggle instructions preview mode
+  toggleInstructionsPreview() {
+    this.instructionsPreviewMode.update(v => !v);
+  }
+
+  // Get current instructions content
+  getInstructions(): string {
+    const mod = this.module();
+    if (!mod) return '';
+    const settings = this.parseModuleSettings(mod);
+    return settings.instructions || '';
+  }
+
   async saveModuleSettings() {
     if (!this.module() || !this.courseId()) return;
-    
+
     try {
       // Build settings object based on module type
       let settings: any = {};
-      
+
       if (this.module()!.type === 'ASSIGNMENT') {
         settings = {
           dueDate: this.editDueDate || null,
           allowLateSubmission: this.editAllowLateSubmission,
-          maxAttempts: this.editMaxAttempts
+          maxAttempts: this.editMaxAttempts,
+          instructions: this.editInstructions || null
         };
       } else if (this.module()!.type === 'QUIZ') {
-        settings = { ...this.editQuizSettings };
+        settings = {
+          ...this.editQuizSettings,
+          instructions: this.editInstructions || null
+        };
+      } else if (this.module()!.type === 'VIDEO') {
+        // VIDEO type can also have instructions
+        settings = {
+          instructions: this.editInstructions || null
+        };
+      } else if (this.module()!.type === 'RESOURCE') {
+        // RESOURCE type can also have instructions
+        settings = {
+          instructions: this.editInstructions || null
+        };
       }
-      
+
       // Update module basic info + settings
       const updated = await this.courseService.updateModule(
         this.module()!.id,
         {
           title: this.editTitle,
           description: this.editDescription,
-          resourceUrl: this.editContentUrl,
+          resourceUrl: this.editResourceUrl,
           visible: this.editVisible,
           settings: Object.keys(settings).length > 0 ? settings : undefined
         } as any
-      ).toPromise();    
-      
+      ).toPromise();
+
       // Update grade config if gradable module
       if (this.isGradableModule()) {
         await this.gradeService.updateModuleGradeConfig(this.courseId()!, {
@@ -647,7 +690,7 @@ export class TeacherModuleDetailComponent implements OnInit {
           }]
         }).toPromise();
       }
-      
+
       if (updated) {
         // Update local module with new values
         this.module.set({
@@ -658,7 +701,7 @@ export class TeacherModuleDetailComponent implements OnInit {
           settings: settings
         } as any);
         this.isEditingSettings.set(false);
-        
+
         // Update quiz settings signal for display
         if (this.module()!.type === 'QUIZ') {
           this.quizSettings.set({ ...this.editQuizSettings });
@@ -694,14 +737,14 @@ export class TeacherModuleDetailComponent implements OnInit {
   // Inline grading methods
   startInlineEdit(submission: StudentSubmission) {
     // Reset all other edits first
-    this.submissions.update(subs => 
+    this.submissions.update(subs =>
       subs.map(s => ({ ...s, isEditing: false }))
     );
-    
+
     // Set this one to editing
-    this.submissions.update(subs => 
-      subs.map(s => 
-        s.studentId === submission.studentId 
+    this.submissions.update(subs =>
+      subs.map(s =>
+        s.studentId === submission.studentId
           ? { ...s, isEditing: true, editScore: s.score, editFeedback: s.feedback || '' }
           : s
       )
@@ -709,9 +752,9 @@ export class TeacherModuleDetailComponent implements OnInit {
   }
 
   cancelInlineEdit(submission: StudentSubmission) {
-    this.submissions.update(subs => 
-      subs.map(s => 
-        s.studentId === submission.studentId 
+    this.submissions.update(subs =>
+      subs.map(s =>
+        s.studentId === submission.studentId
           ? { ...s, isEditing: false }
           : s
       )
@@ -720,12 +763,12 @@ export class TeacherModuleDetailComponent implements OnInit {
 
   async saveInlineGrade(submission: StudentSubmission) {
     if (!this.courseId() || !this.moduleId()) return;
-    
+
     this.savingGrade.set(true);
-    
+
     try {
       const score = submission.editScore;
-      
+
       // Call API to save grade
       await this.gradeService.bulkUpdateGrades(this.courseId()!, {
         moduleId: this.moduleId()!,
@@ -735,28 +778,50 @@ export class TeacherModuleDetailComponent implements OnInit {
           feedback: submission.editFeedback || ''
         }]
       }).toPromise();
-      
+
       // Update local state
-      this.submissions.update(subs => 
-        subs.map(s => 
-          s.studentId === submission.studentId 
-            ? { 
-                ...s, 
-                score: score ?? null, 
-                feedback: submission.editFeedback || null, 
-                status: score !== null ? 'GRADED' as const : 'NOT_SUBMITTED' as const, 
-                gradedAt: new Date().toISOString(),
-                isEditing: false 
-              }
+      this.submissions.update(subs =>
+        subs.map(s =>
+          s.studentId === submission.studentId
+            ? {
+              ...s,
+              score: score ?? null,
+              feedback: submission.editFeedback || null,
+              status: score !== null ? 'GRADED' as const : 'NOT_SUBMITTED' as const,
+              gradedAt: new Date().toISOString(),
+              isEditing: false
+            }
             : s
         )
       );
-      
+
     } catch (error) {
       console.error('Error saving grade:', error);
     } finally {
       this.savingGrade.set(false);
     }
+  }
+
+  /**
+   * Xem file bài nộp của sinh viên (mở trong tab mới)
+   */
+  viewSubmissionFile(submission: StudentSubmission) {
+    if (!submission.fileUrl) return;
+    // Sử dụng viewFileBlob để có authentication
+    this.submissionService.viewFileBlob(submission.fileUrl).subscribe({
+      error: (err) => console.error('Error viewing file:', err)
+    });
+  }
+
+  /**
+   * Download file bài nộp của sinh viên
+   */
+  downloadSubmissionFile(submission: StudentSubmission) {
+    if (!submission.fileUrl) return;
+    // Sử dụng downloadSubmissionFileBlob để có authentication
+    this.submissionService.downloadSubmissionFileBlob(submission.fileUrl, submission.fileName).subscribe({
+      error: (err) => console.error('Error downloading file:', err)
+    });
   }
 
   onGradeInputKeydown(event: KeyboardEvent, submission: StudentSubmission) {
@@ -771,12 +836,12 @@ export class TeacherModuleDetailComponent implements OnInit {
   async saveGrade() {
     const submission = this.selectedSubmission();
     if (!submission || !this.courseId() || !this.moduleId()) return;
-    
+
     try {
       // Find enrollment ID from course grades
       const gradesData = await this.gradeService.getCourseGrades(this.courseId()!).toPromise();
       if (!gradesData) return;
-      
+
       // For now, we'll use bulk update with student ID
       await this.gradeService.bulkUpdateGrades(this.courseId()!, {
         moduleId: this.moduleId()!,
@@ -786,20 +851,20 @@ export class TeacherModuleDetailComponent implements OnInit {
           feedback: this.gradeFeedback
         }]
       }).toPromise();
-      
+
       // Update local state
-      this.submissions.update(subs => 
-        subs.map(s => 
-          s.studentId === submission.studentId 
+      this.submissions.update(subs =>
+        subs.map(s =>
+          s.studentId === submission.studentId
             ? { ...s, score: this.gradeScore, feedback: this.gradeFeedback, status: 'GRADED' as const, gradedAt: new Date().toISOString() }
             : s
         )
       );
-      
-      this.selectedSubmission.update(s => 
+
+      this.selectedSubmission.update(s =>
         s ? { ...s, score: this.gradeScore, feedback: this.gradeFeedback, status: 'GRADED' as const } : s
       );
-      
+
     } catch (error) {
       console.error('Error saving grade:', error);
     }
@@ -831,12 +896,12 @@ export class TeacherModuleDetailComponent implements OnInit {
   // Toggle visibility
   async toggleVisibility() {
     if (!this.module()) return;
-    
+
     try {
       const updated = await this.courseService.toggleModuleVisibility(
         this.module()!.id
       ).toPromise();
-      
+
       if (updated) {
         this.module.set(updated);
       }
@@ -899,19 +964,19 @@ export class TeacherModuleDetailComponent implements OnInit {
     const items: BreadcrumbItem[] = [
       { label: 'Dashboard', link: '/teacher/dashboard' }
     ];
-    
+
     if (this.course()) {
       items.push({ label: this.course()!.subjectName, link: `/teacher/courses/${this.courseId()}` });
     }
-    
+
     if (this.section()) {
       items.push({ label: this.section()!.title, link: `/teacher/courses/${this.courseId()}/sections/${this.sectionId()}` });
     }
-    
+
     if (this.module()) {
       items.push({ label: this.module()!.title });
     }
-    
+
     return items;
   }
 

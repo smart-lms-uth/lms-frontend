@@ -36,8 +36,8 @@ export interface EnrollmentWithProgress extends Enrollment {
   credits?: number;
 }
 
-// Course base URL (no /v1 prefix)
-const COURSE_API = environment.apiUrl.replace('/v1', '');
+// Course base URL - uses courseApiUrl from environment
+const COURSE_API = environment.courseApiUrl;
 
 @Injectable({
   providedIn: 'root'

@@ -23,14 +23,14 @@ export interface AssignmentSubmission {
   fileUrl: string;
   fileName: string;
   fileType: string;
-  fileSize: number;
+  fileSize: number;  // Long in BE
   studentNote?: string;
   attemptNumber: number;
   status: 'SUBMITTED' | 'GRADED' | 'RETURNED' | 'RESUBMITTED';
   isLate: boolean;
   submittedAt: string;
-  score?: number;
-  maxScore?: number;
+  score?: number;   // Double in BE
+  maxScore?: number; // Double in BE
   feedback?: string;
   gradedAt?: string;
 }
@@ -78,11 +78,10 @@ export class SubmissionService {
     formData.append('file', file);
     formData.append('moduleId', moduleId.toString());
 
-    // Note: File API uses /api/files, not /api/v1/files
-    const baseUrl = API_URL.replace('/api/v1', '/api');
-    
+    // Note: File API uses courseApiUrl (/api prefix)
+
     return this.http.post<ApiResponse<FileUploadResponse>>(
-      `${baseUrl}/files/upload/assignment`,
+      `${environment.courseApiUrl}/files/upload/assignment`,
       formData,
       {
         reportProgress: true,
@@ -97,15 +96,15 @@ export class SubmissionService {
               ? Math.round((100 * progressEvent.loaded) / progressEvent.total)
               : 0;
             return { status: 'progress' as const, progress };
-          
+
           case HttpEventType.Response:
             const response = event as HttpResponse<ApiResponse<FileUploadResponse>>;
-            return { 
-              status: 'complete' as const, 
+            return {
+              status: 'complete' as const,
               progress: 100,
-              response: response.body?.data 
+              response: response.body?.data
             };
-          
+
           default:
             return { status: 'progress' as const, progress: 0 };
         }
@@ -199,5 +198,104 @@ export class SubmissionService {
       'css': '🎨',
     };
     return icons[ext] || '📁';
+  }
+
+  /**
+   * Normalize file URL - chuyển đổi URL cũ (port 8081) sang gateway (port 8888)
+   * Đảm bảo tất cả URL đều đi qua API gateway
+   */
+  normalizeFileUrl(fileUrl: string): string {
+    if (!fileUrl) return '';
+
+    // Nếu là relative path, thêm gateway base URL
+    if (!fileUrl.startsWith('http')) {
+      return `${environment.courseApiUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+    }
+
+    // Chuyển đổi URL trực tiếp đến course-service (8081) sang gateway (8888)
+    // Xử lý cả localhost và 127.0.0.1
+    const oldPatterns = [
+      /http:\/\/localhost:8081\/api\/files/g,
+      /http:\/\/127\.0\.0\.1:8081\/api\/files/g,
+      /http:\/\/lms-course-service:8081\/api\/files/g
+    ];
+
+    let normalizedUrl = fileUrl;
+    for (const pattern of oldPatterns) {
+      normalizedUrl = normalizedUrl.replace(pattern, `${environment.courseApiUrl}/files`);
+    }
+
+    return normalizedUrl;
+  }
+
+  /**
+   * Mở file trong tab mới để xem (inline viewing)
+   * Sử dụng cho PDF, images, text files
+   * @param fileUrl URL của file
+   */
+  viewFile(fileUrl: string): void {
+    const normalizedUrl = this.normalizeFileUrl(fileUrl);
+    window.open(normalizedUrl, '_blank');
+  }
+
+  /**
+   * Download file bài nộp của sinh viên (bắt buộc tải xuống)
+   * @param fileUrl URL của file
+   * @param fileName Tên file để lưu
+   */
+  downloadSubmissionFile(fileUrl: string, fileName?: string): void {
+    const normalizedUrl = this.normalizeFileUrl(fileUrl);
+    // Thêm ?download=true để bắt buộc download
+    const downloadUrl = normalizedUrl + (normalizedUrl.includes('?') ? '&' : '?') + 'download=true';
+
+    // Mở trong tab mới - browser sẽ tự động download do Content-Disposition: attachment
+    window.open(downloadUrl, '_blank');
+  }
+
+  /**
+   * Download file với blob (hỗ trợ authentication)
+   * Sử dụng khi cần download file có yêu cầu token
+   */
+  downloadSubmissionFileBlob(fileUrl: string, fileName?: string): Observable<void> {
+    const normalizedUrl = this.normalizeFileUrl(fileUrl);
+    const downloadUrl = normalizedUrl + (normalizedUrl.includes('?') ? '&' : '?') + 'download=true';
+
+    return this.http.get(downloadUrl, { responseType: 'blob' }).pipe(
+      map(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName || this.extractFileName(fileUrl);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      })
+    );
+  }
+
+  /**
+   * Xem file với blob (hỗ trợ authentication) - mở trong tab mới
+   * Sử dụng khi cần xem file có yêu cầu token
+   */
+  viewFileBlob(fileUrl: string): Observable<void> {
+    const normalizedUrl = this.normalizeFileUrl(fileUrl);
+
+    return this.http.get(normalizedUrl, { responseType: 'blob' }).pipe(
+      map(blob => {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        // Note: URL sẽ bị revoke sau 1 phút để tránh memory leak
+        setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      })
+    );
+  }
+
+  /**
+   * Trích xuất tên file từ URL
+   */
+  private extractFileName(fileUrl: string): string {
+    const parts = fileUrl.split('/');
+    return parts[parts.length - 1] || 'download';
   }
 }

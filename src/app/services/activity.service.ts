@@ -5,7 +5,7 @@ import { filter, Subscription, Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 
-export type ActivityType = 
+export type ActivityType =
   | 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED' | 'PASSWORD_RESET' | 'PASSWORD_SET' | 'PASSWORD_CHANGE'
   | 'PAGE_VIEW' | 'PAGE_LEAVE'
   | 'BUTTON_CLICK' | 'LINK_CLICK' | 'FORM_SUBMIT' | 'FORM_ERROR'
@@ -213,9 +213,32 @@ export class ActivityService implements OnDestroy {
   }
 
   /**
+   * Danh sách các URL public không cần track activity
+   */
+  private readonly PUBLIC_PATHS = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password'
+  ];
+
+  /**
+   * Kiểm tra xem URL hiện tại có phải là public page không
+   */
+  private isPublicPage(): boolean {
+    const currentPath = window.location.pathname;
+    return this.PUBLIC_PATHS.some(path => currentPath.startsWith(path));
+  }
+
+  /**
    * Track any activity
    */
   track(activityType: ActivityType, data: Partial<ActivityData> = {}, immediate: boolean = false): void {
+    // Không track activity nếu user chưa đăng nhập hoặc đang ở trang public
+    if (!this.authService.getToken() || this.isPublicPage()) {
+      return;
+    }
+
     const activity: ActivityData = {
       sessionId: this.sessionId,
       activityType,
@@ -226,7 +249,7 @@ export class ActivityService implements OnDestroy {
       os: this.getOS(),
       screenWidth: window.innerWidth,
       screenHeight: window.innerHeight,
-      timestamp: this.getLocalISOString(), // Use local timezone
+      timestamp: new Date().toISOString(), // Use UTC ISO string
       ...data
     };
 
@@ -252,7 +275,7 @@ export class ActivityService implements OnDestroy {
   trackPageView(pageUrl?: string, pageTitle?: string): void {
     this.pageEnterTime = Date.now();
     this.currentPageUrl = pageUrl || window.location.href;
-    
+
     this.track('PAGE_VIEW', {
       pageUrl: this.currentPageUrl,
       pageTitle: pageTitle || document.title
@@ -306,9 +329,9 @@ export class ActivityService implements OnDestroy {
    * Track API call - chỉ track lỗi API, không track request thành công
    */
   trackApiCall(
-    endpoint: string, 
-    method: string, 
-    status: number, 
+    endpoint: string,
+    method: string,
+    status: number,
     responseTimeMs: number
   ): void {
     // Don't track activity API calls to prevent infinite loop
@@ -423,21 +446,21 @@ export class ActivityService implements OnDestroy {
   /**
    * Track video play
    */
-  trackVideoPlay(videoId: string, videoName: string, currentTime?: number): void {
+  trackVideoPlay(videoId: string, videoName: string, courseId?: string, currentTime?: number): void {
     this.trackImmediate('VIDEO_PLAY', {
       action: `Xem video: ${videoName}`,
-      metadata: JSON.stringify({ videoId, videoName, currentTime })
+      metadata: JSON.stringify({ videoId, videoName, courseId, currentTime })
     });
   }
 
   /**
    * Track video complete
    */
-  trackVideoComplete(videoId: string, videoName: string, durationMs: number): void {
+  trackVideoComplete(videoId: string, videoName: string, courseId?: string, durationMs?: number): void {
     this.trackImmediate('VIDEO_COMPLETE', {
       action: `Xem xong video: ${videoName}`,
       durationMs,
-      metadata: JSON.stringify({ videoId, videoName })
+      metadata: JSON.stringify({ videoId, videoName, courseId })
     });
   }
 
@@ -482,6 +505,11 @@ export class ActivityService implements OnDestroy {
    * Flush buffer to server
    */
   flush(): void {
+    // Không gửi activity nếu user chưa đăng nhập
+    if (!this.authService.getToken()) {
+      return;
+    }
+
     if (this.activityBuffer.length === 0) {
       return;
     }
@@ -493,10 +521,9 @@ export class ActivityService implements OnDestroy {
     this.http.post(`${this.API_URL}/activities/batch`, activitiesToSend)
       .subscribe({
         next: () => {
-          console.debug(`Sent ${activitiesToSend.length} activities`);
+          // Silent success
         },
-        error: (error) => {
-          console.error('Failed to send activities:', error);
+        error: () => {
           // Re-add failed activities to buffer
           this.activityBuffer = [...activitiesToSend, ...this.activityBuffer];
           this.saveBufferToStorage();

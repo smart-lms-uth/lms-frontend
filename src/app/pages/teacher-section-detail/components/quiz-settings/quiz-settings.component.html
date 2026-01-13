@@ -1,0 +1,303 @@
+<div class="quiz-settings">
+  <div class="quiz-settings-header">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+    <span>Cấu hình bài trắc nghiệm</span>
+  </div>
+
+  <div class="quiz-tabs">
+    <button class="quiz-tab" [class.quiz-tab--active]="activeTab === 'time'" (click)="setTab('time')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      Thời gian
+    </button>
+    <button class="quiz-tab" [class.quiz-tab--active]="activeTab === 'attempt'" (click)="setTab('attempt')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+      Làm bài
+    </button>
+    <button class="quiz-tab" [class.quiz-tab--active]="activeTab === 'questions'" (click)="setTab('questions')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+      Câu hỏi
+    </button>
+    <button class="quiz-tab" [class.quiz-tab--active]="activeTab === 'display'" (click)="setTab('display')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      Hiển thị
+    </button>
+    <button class="quiz-tab" [class.quiz-tab--active]="activeTab === 'review'" (click)="setTab('review')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      Xem lại
+    </button>
+    <button class="quiz-tab" [class.quiz-tab--active]="activeTab === 'security'" (click)="setTab('security')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      Bảo mật
+    </button>
+  </div>
+
+  <!-- Tab: Time -->
+  <div class="quiz-tab-content" *ngIf="activeTab === 'time'">
+    <div class="form-row">
+      <div class="form-group form-group--half">
+        <label class="form-label">Ngày mở</label>
+        <input type="datetime-local" class="form-input" [(ngModel)]="settings.openDate" (ngModelChange)="onSettingsChange()">
+      </div>
+      <div class="form-group form-group--half">
+        <label class="form-label">Ngày đóng</label>
+        <input type="datetime-local" class="form-input" [(ngModel)]="settings.closeDate" (ngModelChange)="onSettingsChange()">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Thời gian làm bài (phút)</label>
+      <input type="number" class="form-input" [(ngModel)]="settings.durationMinutes" (ngModelChange)="onSettingsChange()" placeholder="60" min="1" max="480">
+      <span class="form-hint">Thời gian tối đa sinh viên có thể làm bài</span>
+    </div>
+  </div>
+
+  <!-- Tab: Attempt -->
+  <div class="quiz-tab-content" *ngIf="activeTab === 'attempt'">
+    <div class="form-group">
+      <label class="form-label">Số lần làm bài tối đa</label>
+      <input type="number" class="form-input" [(ngModel)]="settings.maxAttempts" (ngModelChange)="onSettingsChange()" placeholder="1" min="1" max="99">
+      <span class="form-hint">Số lần sinh viên được phép làm bài</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cách tính điểm</label>
+      <select class="form-input form-select" [(ngModel)]="settings.gradingMethod" (ngModelChange)="onSettingsChange()">
+        <option value="HIGHEST">Điểm cao nhất</option>
+        <option value="LATEST">Điểm lần cuối</option>
+        <option value="AVERAGE">Trung bình các lần</option>
+        <option value="FIRST">Điểm lần đầu</option>
+      </select>
+      <span class="form-hint">Cách tính điểm khi sinh viên làm nhiều lần</span>
+    </div>
+  </div>
+
+  <!-- Tab: Questions -->
+  <div class="quiz-tab-content" *ngIf="activeTab === 'questions'">
+    <div class="ai-generate-section">
+      <button class="btn btn--ai" (click)="onOpenAiModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+          <path d="M2 17l10 5 10-5"></path>
+          <path d="M2 12l10 5 10-5"></path>
+        </svg>
+        ✨ Tạo câu hỏi với AI
+      </button>
+      <span class="ai-hint">Sử dụng AI để tạo câu hỏi tự động từ chủ đề</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Cách chọn câu hỏi</label>
+      <select class="form-input form-select" [(ngModel)]="settings.questionSelectionMode" (ngModelChange)="onSettingsChange()">
+        <option value="MANUAL">Chọn thủ công từng câu</option>
+        <option value="RANDOM">Ngẫu nhiên từ ngân hàng</option>
+        <option value="MIXED">Kết hợp (bắt buộc + ngẫu nhiên)</option>
+      </select>
+    </div>
+
+    <div *ngIf="isChaptersLoading || isQuestionsLoading" class="question-loading">
+      <div class="spinner-small"></div>
+      <span>Đang tải danh sách câu hỏi...</span>
+    </div>
+
+    <!-- RANDOM MODE -->
+    <ng-container *ngIf="settings.questionSelectionMode === 'RANDOM' && !isChaptersLoading">
+      <div class="form-section">
+        <h4 class="form-section-title">Chọn chương (có thể chọn nhiều)</h4>
+        <div class="chapter-select-grid">
+          <label *ngFor="let chapter of chapters" class="chapter-checkbox-item">
+            <input type="checkbox" [checked]="isChapterSelected(chapter.id)" (change)="onChapterToggle(chapter.id)">
+            <span class="chapter-name">{{ chapter.name }}</span>
+            <span class="chapter-count">({{ chapter.questionCount || 0 }} câu)</span>
+          </label>
+        </div>
+        <div class="form-hint" *ngIf="selectedChapterIds.length === 0">
+          <em>Không chọn chương = lấy từ toàn bộ ngân hàng câu hỏi</em>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4 class="form-section-title">Số lượng câu theo độ khó</h4>
+        <div class="difficulty-inputs">
+          <div class="difficulty-input-group">
+            <label class="form-label form-label--small">Câu dễ</label>
+            <input type="number" class="form-input form-input--small" [(ngModel)]="settings.randomConfig!.easyCount" (ngModelChange)="onSettingsChange()" placeholder="0" min="0">
+          </div>
+          <div class="difficulty-input-group">
+            <label class="form-label form-label--small">Câu trung bình</label>
+            <input type="number" class="form-input form-input--small" [(ngModel)]="settings.randomConfig!.mediumCount" (ngModelChange)="onSettingsChange()" placeholder="0" min="0">
+          </div>
+          <div class="difficulty-input-group">
+            <label class="form-label form-label--small">Câu khó</label>
+            <input type="number" class="form-input form-input--small" [(ngModel)]="settings.randomConfig!.hardCount" (ngModelChange)="onSettingsChange()" placeholder="0" min="0">
+          </div>
+        </div>
+        <div class="total-count-display">
+          Tổng số câu: <strong>{{ getRandomTotalCount() }}</strong>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- MANUAL MODE -->
+    <ng-container *ngIf="settings.questionSelectionMode === 'MANUAL' && !isQuestionsLoading">
+      <div class="form-section">
+        <h4 class="form-section-title">
+          Chọn câu hỏi
+          <span class="selected-count">(Đã chọn: {{ selectedQuestionIds.length }})</span>
+        </h4>
+
+        <div *ngIf="getQuestionsForChapter(0).length > 0" class="chapter-question-group">
+          <div class="chapter-group-header">
+            <span class="chapter-group-title">Câu hỏi chung (không thuộc chương)</span>
+            <span class="chapter-question-count">{{ getQuestionsForChapter(0).length }} câu</span>
+          </div>
+          <div class="question-select-list">
+            <label *ngFor="let q of getQuestionsForChapter(0)" class="question-select-item">
+              <input type="checkbox" [checked]="isQuestionSelected(q.id)" (change)="onQuestionToggle(q.id)">
+              <div class="question-info">
+                <span class="question-content" [innerHTML]="q.content"></span>
+                <div class="question-meta">
+                  <span class="badge" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelLabel(q.level) }}</span>
+                  <span class="question-type">{{ q.type }}</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div *ngFor="let chapter of chapters" class="chapter-question-group">
+          <ng-container *ngIf="getQuestionsForChapter(chapter.id).length > 0">
+            <div class="chapter-group-header">
+              <span class="chapter-group-title">{{ chapter.name }}</span>
+              <span class="chapter-question-count">{{ getQuestionsForChapter(chapter.id).length }} câu</span>
+            </div>
+            <div class="question-select-list">
+              <label *ngFor="let q of getQuestionsForChapter(chapter.id)" class="question-select-item">
+                <input type="checkbox" [checked]="isQuestionSelected(q.id)" (change)="onQuestionToggle(q.id)">
+                <div class="question-info">
+                  <span class="question-content" [innerHTML]="q.content"></span>
+                  <div class="question-meta">
+                    <span class="badge" [ngClass]="getLevelBadgeClass(q.level)">{{ getLevelLabel(q.level) }}</span>
+                    <span class="question-type">{{ q.type }}</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </ng-container>
+        </div>
+
+        <div *ngIf="questions.length === 0" class="empty-questions">
+          <p>Chưa có câu hỏi trong ngân hàng đề.</p>
+        </div>
+      </div>
+    </ng-container>
+
+    <div class="form-group" *ngIf="!isChaptersLoading">
+      <label class="form-label">Cách phát đề</label>
+      <select class="form-input form-select" [(ngModel)]="settings.distributionMode" (ngModelChange)="onSettingsChange()">
+        <option value="SAME_FOR_ALL">Cùng bộ đề cho tất cả</option>
+        <option value="UNIQUE_PER_STUDENT">Mỗi sinh viên 1 bộ đề khác</option>
+      </select>
+      <span class="form-hint">Chọn cách phát đề cho sinh viên khi làm bài</span>
+    </div>
+  </div>
+
+  <!-- Tab: Display -->
+  <div class="quiz-tab-content" *ngIf="activeTab === 'display'">
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.shuffleQuestions" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Đảo thứ tự câu hỏi</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.shuffleAnswers" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Đảo thứ tự đáp án</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.oneQuestionPerPage" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Hiển thị 1 câu/trang</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.allowBackNavigation" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Cho phép quay lại câu trước</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.showQuestionNumber" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Hiển thị số thứ tự câu hỏi</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.showPointsPerQuestion" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Hiển thị điểm từng câu</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Tab: Review -->
+  <div class="quiz-tab-content" *ngIf="activeTab === 'review'">
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.showScoreImmediately" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Hiển thị điểm ngay sau nộp bài</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.allowReview" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Cho phép xem lại bài làm</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.showCorrectAnswers" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Hiển thị đáp án đúng sau nộp</span>
+      </label>
+    </div>
+    <div class="form-group" *ngIf="settings.showCorrectAnswers">
+      <label class="form-label">Thời điểm được xem đáp án</label>
+      <input type="datetime-local" class="form-input" [(ngModel)]="settings.reviewAvailableFrom" (ngModelChange)="onSettingsChange()">
+      <span class="form-hint">Để trống = xem ngay sau khi nộp</span>
+    </div>
+  </div>
+
+  <!-- Tab: Security -->
+  <div class="quiz-tab-content" *ngIf="activeTab === 'security'">
+    <div class="form-group">
+      <label class="form-label">Mật khẩu truy cập</label>
+      <input type="text" class="form-input" [(ngModel)]="settings.accessPassword" (ngModelChange)="onSettingsChange()" placeholder="Để trống nếu không cần mật khẩu">
+      <span class="form-hint">Sinh viên phải nhập mật khẩu để vào làm bài</span>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.requireFullscreen" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Yêu cầu toàn màn hình</span>
+      </label>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.detectTabSwitch" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Phát hiện chuyển tab</span>
+      </label>
+    </div>
+    <div class="form-group" *ngIf="settings.detectTabSwitch">
+      <label class="form-label">Số lần chuyển tab tối đa</label>
+      <input type="number" class="form-input" [(ngModel)]="settings.maxTabSwitchCount" (ngModelChange)="onSettingsChange()" placeholder="3" min="1" max="10">
+      <span class="form-hint">Vượt quá sẽ tự động nộp bài</span>
+    </div>
+    <div class="form-group form-group--inline">
+      <label class="checkbox-label">
+        <input type="checkbox" [(ngModel)]="settings.requireWebcam" (ngModelChange)="onSettingsChange()" class="checkbox-input">
+        <span>Yêu cầu bật webcam (Proctoring)</span>
+      </label>
+    </div>
+  </div>
+</div>

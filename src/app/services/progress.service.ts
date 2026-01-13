@@ -31,8 +31,8 @@ export interface SectionProgress {
   progressPercent: number;
 }
 
-// Course base URL
-const COURSE_API = environment.apiUrl.replace('/v1', '');
+// Course base URL - uses courseApiUrl from environment
+const COURSE_API = environment.courseApiUrl;
 
 @Injectable({
   providedIn: 'root'

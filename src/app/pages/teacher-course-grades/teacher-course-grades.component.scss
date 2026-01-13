@@ -99,7 +99,7 @@
 
 .btn-grade-type--invalid {
   border-color: #dc2626 !important;
-  
+
   &:hover {
     background: rgba(239, 68, 68, 0.05) !important;
   }
@@ -111,7 +111,8 @@
   margin-left: 0.5rem;
 }
 
-.btn-apply-selection, .btn-cancel-selection {
+.btn-apply-selection,
+.btn-cancel-selection {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -124,7 +125,8 @@
   transition: all 0.2s ease;
 }
 
-.btn-save-selection, .btn-apply-selection {
+.btn-save-selection,
+.btn-apply-selection {
   background: var(--primary-500);
   color: white;
 
@@ -159,6 +161,32 @@
   &:hover:not(:disabled) {
     background: #059669;
     box-shadow: 0 4px 8px rgba(16, 185, 129, 0.35);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.btn-export-excel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: #217346;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(33, 115, 70, 0.25);
+
+  &:hover:not(:disabled) {
+    background: #1a5c38;
+    box-shadow: 0 4px 8px rgba(33, 115, 70, 0.35);
   }
 
   &:disabled {
@@ -241,12 +269,12 @@
   border-radius: 4px;
   font-size: 0.8125rem;
   font-weight: 600;
-  
+
   &--valid {
     background: rgba(34, 197, 94, 0.1);
     color: #16a34a;
   }
-  
+
   &--invalid {
     background: rgba(239, 68, 68, 0.1);
     color: #dc2626;
@@ -297,7 +325,8 @@
   border-radius: 8px;
   overflow: hidden;
 
-  th, td {
+  th,
+  td {
     padding: 0.75rem 0.75rem;
     text-align: left;
     border: 1px solid rgba(0, 0, 0, 0.08);
@@ -357,25 +386,22 @@
     min-width: 20px !important;
     max-width: 20px !important;
     padding: 0.5rem 2px !important;
-    background: linear-gradient(90deg, 
-      rgba(0,0,0,0.08) 0%, 
-      rgba(0,0,0,0.08) 40%, 
-      transparent 40%, 
-      transparent 60%, 
-      rgba(0,0,0,0.08) 60%, 
-      rgba(0,0,0,0.08) 100%
-    );
+    background: linear-gradient(90deg,
+        rgba(0, 0, 0, 0.08) 0%,
+        rgba(0, 0, 0, 0.08) 40%,
+        transparent 40%,
+        transparent 60%,
+        rgba(0, 0, 0, 0.08) 60%,
+        rgba(0, 0, 0, 0.08) 100%);
   }
 
   &--hidden {
     opacity: 0.5;
-    background: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 5px,
-      rgba(0, 0, 0, 0.03) 5px,
-      rgba(0, 0, 0, 0.03) 10px
-    );
+    background: repeating-linear-gradient(45deg,
+        transparent,
+        transparent 5px,
+        rgba(0, 0, 0, 0.03) 5px,
+        rgba(0, 0, 0, 0.03) 10px);
   }
 
   &--process {
@@ -389,7 +415,7 @@
   // Virtual module styles (CC, Bonus)
   &--virtual {
     position: relative;
-    
+
     &::before {
       content: '';
       position: absolute;
@@ -404,11 +430,11 @@
   &--attendance {
     background: rgba(147, 51, 234, 0.05) !important;
     border-left: 2px solid rgba(147, 51, 234, 0.5) !important;
-    
+
     .module-title {
       color: #7c3aed;
     }
-    
+
     .grade-type-badge {
       background: rgba(147, 51, 234, 0.15) !important;
       color: #7c3aed !important;
@@ -418,11 +444,11 @@
   &--bonus {
     background: rgba(245, 158, 11, 0.05) !important;
     border-left: 2px solid rgba(245, 158, 11, 0.5) !important;
-    
+
     .module-title {
       color: #d97706;
     }
-    
+
     .grade-type-badge {
       background: rgba(245, 158, 11, 0.15) !important;
       color: #d97706 !important;
@@ -440,6 +466,72 @@
   width: 80px;
   text-align: center !important;
   background: rgba(245, 158, 11, 0.03);
+}
+
+// Summary columns (Điểm QT, Điểm KT, Điểm HP)
+.col-summary {
+  width: 80px;
+  min-width: 70px;
+  text-align: center !important;
+  font-weight: 600;
+
+  &.col-process {
+    background: rgba(59, 130, 246, 0.08);
+    border-left: 2px solid rgba(59, 130, 246, 0.5);
+  }
+
+  &.col-final {
+    background: rgba(34, 197, 94, 0.08);
+    border-left: 2px solid rgba(34, 197, 94, 0.5);
+  }
+
+  &.col-total {
+    background: rgba(168, 85, 247, 0.08);
+    border-left: 2px solid rgba(168, 85, 247, 0.5);
+  }
+}
+
+.summary-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+
+  &--process {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+  }
+
+  &--final {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+  }
+
+  &--low {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+  }
+
+  &--medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+  }
+
+  &--good {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+  }
+
+  &--banned {
+    background: rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
 }
 
 .col-average {
@@ -464,7 +556,7 @@
 
 .module-checkbox {
   flex-shrink: 0;
-  
+
   input[type="checkbox"] {
     width: 16px;
     height: 16px;
@@ -546,7 +638,8 @@
   }
 }
 
-.weight-save-btn, .weight-cancel-btn {
+.weight-save-btn,
+.weight-cancel-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -613,7 +706,8 @@
   }
 }
 
-.collapse-btn, .expand-btn {
+.collapse-btn,
+.expand-btn {
   background: none;
   border: none;
   padding: 4px;
@@ -755,8 +849,15 @@
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
 }
 
 // Ban Column Styles
@@ -823,7 +924,7 @@
 
 .row-banned {
   background: rgba(239, 68, 68, 0.05) !important;
-  
+
   td {
     opacity: 0.7;
   }
@@ -899,6 +1000,7 @@
     -webkit-appearance: none;
     margin: 0;
   }
+
   -moz-appearance: textfield;
   appearance: textfield;
 
@@ -946,7 +1048,8 @@
   }
 }
 
-.empty-grades, .empty-students {
+.empty-grades,
+.empty-students {
   display: flex;
   flex-direction: column;
   align-items: center;

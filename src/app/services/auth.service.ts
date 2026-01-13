@@ -22,17 +22,20 @@ export interface User {
   updatedAt: string;
 }
 
+export interface AuthUserResponse {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string;
+  roles: string[];
+  profileCompleted?: boolean;
+}
+
 export interface AuthResponse {
   accessToken: string;
   tokenType: string;
   expiresIn: number;
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    fullName: string;
-    roles: string[];
-  };
+  user: AuthUserResponse;
 }
 
 export interface ApiResponse<T> {
@@ -94,12 +97,39 @@ export class AuthService {
         tap(response => {
           if (response.success && response.data) {
             this.setToken(response.data.accessToken);
-            this.setUser(response.data.user as unknown as User);
-            this.currentUserSubject.next(response.data.user as unknown as User);
+            // Map AuthUserResponse -> User (roles[] -> role)
+            const user = this.mapAuthUserToUser(response.data.user);
+            this.setUser(user);
+            this.currentUserSubject.next(user);
             this.isAuthenticatedSubject.next(true);
           }
         })
       );
+  }
+
+  /**
+   * Map AuthUserResponse (từ login API) sang User interface
+   * Chuyển roles[] thành role string (lấy role đầu tiên)
+   */
+  private mapAuthUserToUser(authUser: AuthUserResponse): User {
+    return {
+      id: authUser.id,
+      username: authUser.username,
+      email: authUser.email,
+      fullName: authUser.fullName,
+      role: authUser.roles?.[0] || 'STUDENT',
+      profileCompleted: authUser.profileCompleted ?? false,
+      phoneNumber: '',
+      avatarUrl: '',
+      authProvider: '',
+      active: true,
+      emailVerified: false,
+      bio: '',
+      dateOfBirth: '',
+      address: '',
+      createdAt: '',
+      updatedAt: ''
+    };
   }
 
   register(data: RegisterRequest): Observable<ApiResponse<User>> {
@@ -141,11 +171,8 @@ export class AuthService {
 
   // Google OAuth2 Login
   loginWithGoogle(): void {
-    // For production (Docker), use relative path; for dev, use gateway URL
-    const baseUrl = this.API_URL.startsWith('http') 
-      ? this.API_URL.replace('/api/v1', '') 
-      : '';
-    window.location.href = `${baseUrl}/oauth2/authorization/google`;
+    // Use gatewayUrl for OAuth2 redirects
+    window.location.href = `${environment.gatewayUrl}/oauth2/authorization/google`;
   }
 
   // Handle OAuth2 callback
@@ -160,5 +187,17 @@ export class AuthService {
         }
       })
     );
+  }
+
+  forgotPassword(email: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.API_URL}/auth/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, newPassword: string, confirmPassword: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.API_URL}/auth/reset-password`, { token, newPassword, confirmPassword });
+  }
+
+  validateResetToken(token: string): Observable<ApiResponse<{ valid: boolean }>> {
+    return this.http.get<ApiResponse<{ valid: boolean }>>(`${this.API_URL}/auth/validate-reset-token?token=${token}`);
   }
 }

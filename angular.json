@@ -30,6 +30,8 @@
               }
             ],
             "styles": [
+              "node_modules/prismjs/themes/prism-tomorrow.css",
+              "node_modules/prismjs/plugins/line-numbers/prism-line-numbers.css",
               "src/styles.scss"
             ]
           },
@@ -43,8 +45,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "20kB",
-                  "maximumError": "30kB"
+                  "maximumWarning": "30kB",
+                  "maximumError": "40kB"
                 }
               ],
               "outputHashing": "all",

@@ -32,6 +32,124 @@ export interface CheckActiveResponse {
   timestamp: string;
 }
 
+// ============ AI Quiz Generation Interfaces ============
+
+export interface GeneratedQuizOption {
+  content: string;
+  isCorrect: boolean;
+}
+
+export interface GeneratedQuizQuestion {
+  content: string;
+  type: 'SINGLE' | 'MULTI' | 'FILL';
+  level: 'EASY' | 'MEDIUM' | 'HARD';
+  options: GeneratedQuizOption[];
+  explanation?: string;
+}
+
+export interface GeneratedQuizResponse {
+  questions: GeneratedQuizQuestion[];
+}
+
+// ============ AI Lecture Interfaces ============
+
+export interface GenerateLectureRequest {
+  lecture_title: string;
+  subject_name: string;
+  duration?: number;
+  learning_objectives?: string;
+}
+
+export interface LectureSectionResponse {
+  heading: string;
+  content: string;
+  examples: string[];
+  keyPoints: string[];
+}
+
+export interface GeneratedLectureResponse {
+  title: string;
+  objectives: string[];
+  sections: LectureSectionResponse[];
+  summary: string;
+  reviewQuestions: string[];
+}
+
+// ============ AI Assignment Interfaces ============
+
+export interface GenerateAssignmentRequest {
+  assignment_title: string;
+  subject_name: string;
+  related_topics?: string;
+  deadline_days?: number;
+}
+
+export interface RubricItemResponse {
+  criteria: string;
+  maxScore: number;
+  description: string;
+}
+
+export interface GeneratedAssignmentResponse {
+  title: string;
+  description: string;
+  objectives: string[];
+  requirements: string[];
+  rubric: RubricItemResponse[];
+  hints: string[];
+  resources: string[];
+}
+
+// ============ AI Course Generation Interfaces ============
+
+export interface GenerateCourseRequest {
+  subject_name: string;
+  credits?: number;
+  description?: string;
+  target_audience?: string;
+  num_sections?: number;
+}
+
+export interface GeneratedModule {
+  title: string;
+  type: string;
+  description: string;
+  estimatedDuration: number;
+  orderIndex: number;
+}
+
+export interface GeneratedSection {
+  title: string;
+  description: string;
+  orderIndex: number;
+  modules: GeneratedModule[];
+}
+
+export interface GeneratedCourseResponse {
+  courseName: string;
+  description: string;
+  sections: GeneratedSection[];
+}
+
+// ============ AI Modify Interfaces ============
+
+export interface ModifyCourseRequest {
+  request: string;
+  current_course: any;
+}
+
+export interface ModifyQuizRequest {
+  request: string;
+  current_quiz: any;
+}
+
+// ============ AI Assignment Instructions ============
+
+export interface GenerateAssignmentInstructionsRequest {
+  prompt: string;
+  topic?: string;
+}
+
 /**
  * AI Service - giao tiếp với lms-ai-service backend
  * Sử dụng JWT authentication thông qua gateway
@@ -41,7 +159,7 @@ export interface CheckActiveResponse {
 })
 export class AiService {
   private http = inject(HttpClient);
-  private baseUrl = `${environment.apiUrl}/ai`;
+  private baseUrl = environment.aiApiUrl; // Use aiApiUrl from environment
 
   /**
    * Public endpoint - Kiểm tra health của AI service
@@ -79,49 +197,177 @@ export class AiService {
     return this.http.get<ApiResponse<any>>(`${this.baseUrl}/status`);
   }
 
-  // ============ AI Chat/Assistant Methods (placeholder) ============
+  // ============ AI Chat/Assistant Methods ============
 
   /**
-   * Gửi câu hỏi đến AI Assistant
+   * Gửi câu hỏi đến AI Assistant (có lưu lịch sử vào Redis)
    * @param question Câu hỏi của user
-   * @param context Context bổ sung (course, module, etc.)
+   * @param options Tùy chọn chat
    */
-  askQuestion(question: string, context?: { courseId?: number; moduleId?: number }): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/chat`, {
+  askQuestion(question: string, options?: { 
+    userId?: string;
+    courseId?: string;
+    sessionId?: string;
+    subjectName?: string;
+    currentChapter?: string;
+    loadHistory?: boolean;
+  }): Observable<ApiResponse<{ answer: string; suggestions: string[] }>> {
+    return this.http.post<ApiResponse<{ answer: string; suggestions: string[] }>>(`${this.baseUrl}/chat`, {
       question,
-      context
+      user_id: options?.userId || 'anonymous',
+      course_id: options?.courseId || null,
+      session_id: options?.sessionId || null,
+      subject_name: options?.subjectName || '',
+      current_chapter: options?.currentChapter || '',
+      load_history: options?.loadHistory ?? true
     });
   }
 
   /**
-   * Tạo quiz tự động từ nội dung
-   * @param content Nội dung để tạo quiz
-   * @param options Tùy chọn tạo quiz
+   * Tạo câu hỏi Quiz từ AI dựa trên chủ đề
+   * @param request Yêu cầu tạo quiz
    */
-  generateQuiz(content: string, options?: { 
-    numberOfQuestions?: number; 
-    difficulty?: 'easy' | 'medium' | 'hard';
-    questionTypes?: string[];
-  }): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.baseUrl}/generate/quiz`, {
+  generateQuizQuestions(request: {
+    topic: string;
+    subjectName: string;
+    chapterName?: string;
+    numQuestions?: number;
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  }): Observable<ApiResponse<GeneratedQuizResponse>> {
+    return this.http.post<ApiResponse<GeneratedQuizResponse>>(`${this.baseUrl}/generate-quiz`, {
+      topic: request.topic,
+      subject_name: request.subjectName,
+      chapter_name: request.chapterName || '',
+      num_questions: request.numQuestions || 10,
+      difficulty: request.difficulty || 'MEDIUM'
+    });
+  }
+
+  /**
+   * Tạo cấu trúc khóa học từ AI
+   * @param request Yêu cầu tạo khóa học
+   */
+  generateCourse(request: GenerateCourseRequest): Observable<ApiResponse<GeneratedCourseResponse>> {
+    return this.http.post<ApiResponse<GeneratedCourseResponse>>(`${this.baseUrl}/generate-course`, {
+      subject_name: request.subject_name,
+      credits: request.credits || 3,
+      description: request.description || '',
+      target_audience: request.target_audience || 'Sinh viên đại học',
+      num_sections: request.num_sections || 8
+    });
+  }
+
+  /**
+   * Tạo nội dung bài giảng từ AI
+   * @param request Yêu cầu tạo bài giảng
+   */
+  generateLecture(request: GenerateLectureRequest): Observable<ApiResponse<GeneratedLectureResponse>> {
+    return this.http.post<ApiResponse<GeneratedLectureResponse>>(`${this.baseUrl}/generate-lecture`, {
+      lecture_title: request.lecture_title,
+      subject_name: request.subject_name,
+      duration: request.duration || 45,
+      learning_objectives: request.learning_objectives || ''
+    });
+  }
+
+  /**
+   * Tạo đề bài tập từ AI
+   * @param request Yêu cầu tạo bài tập
+   */
+  generateAssignment(request: GenerateAssignmentRequest): Observable<ApiResponse<GeneratedAssignmentResponse>> {
+    return this.http.post<ApiResponse<GeneratedAssignmentResponse>>(`${this.baseUrl}/generate-assignment`, {
+      assignment_title: request.assignment_title,
+      subject_name: request.subject_name,
+      related_topics: request.related_topics || '',
+      deadline_days: request.deadline_days || 7
+    });
+  }
+
+  /**
+   * Tạo hướng dẫn bài tập (markdown) từ AI
+   * @param request Yêu cầu tạo hướng dẫn
+   */
+  generateAssignmentInstructions(request: GenerateAssignmentInstructionsRequest): Observable<ApiResponse<{ instructions: string }>> {
+    return this.http.post<ApiResponse<{ instructions: string }>>(`${this.baseUrl}/generate-assignment-instructions`, {
+      prompt: request.prompt,
+      topic: request.topic || 'Bài tập'
+    });
+  }
+
+  /**
+   * Tóm tắt nội dung văn bản
+   * @param content Nội dung cần tóm tắt
+   * @param maxWords Số từ tối đa
+   */
+  summarize(content: string, maxWords: number = 200): Observable<ApiResponse<{ summary: string; keyPoints: string[]; keywords: string[] }>> {
+    return this.http.post<ApiResponse<{ summary: string; keyPoints: string[]; keywords: string[] }>>(`${this.baseUrl}/summarize`, {
       content,
-      options
+      max_words: maxWords
     });
   }
 
   /**
-   * Tóm tắt nội dung bài học
-   * @param moduleId ID của module cần tóm tắt
+   * Chỉnh sửa khóa học đã tạo
+   * @param request Yêu cầu chỉnh sửa
    */
-  summarizeModule(moduleId: number): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/summarize/module/${moduleId}`);
+  modifyCourse(request: ModifyCourseRequest): Observable<ApiResponse<GeneratedCourseResponse>> {
+    return this.http.post<ApiResponse<GeneratedCourseResponse>>(`${this.baseUrl}/modify-course`, {
+      request: request.request,
+      current_course: request.current_course
+    });
   }
 
   /**
-   * Gợi ý nội dung học tập cho sinh viên
-   * @param courseId ID của khóa học
+   * Chỉnh sửa quiz đã tạo
+   * @param request Yêu cầu chỉnh sửa
    */
-  getStudyRecommendations(courseId: number): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.baseUrl}/recommendations/course/${courseId}`);
+  modifyQuiz(request: ModifyQuizRequest): Observable<ApiResponse<GeneratedQuizResponse>> {
+    return this.http.post<ApiResponse<GeneratedQuizResponse>>(`${this.baseUrl}/modify-quiz`, {
+      request: request.request,
+      current_quiz: request.current_quiz
+    });
+  }
+
+  /**
+   * Lấy lịch sử chat
+   * @param userId ID người dùng
+   * @param options Tùy chọn
+   */
+  getChatHistory(userId: string, options?: {
+    sessionId?: string;
+    courseId?: string;
+    limit?: number;
+  }): Observable<ApiResponse<{ messages: any[]; count: number }>> {
+    return this.http.post<ApiResponse<{ messages: any[]; count: number }>>(`${this.baseUrl}/chat/history`, {
+      user_id: userId,
+      session_id: options?.sessionId || null,
+      course_id: options?.courseId || null,
+      limit: options?.limit || 50
+    });
+  }
+
+  /**
+   * Xóa lịch sử chat
+   * @param userId ID người dùng
+   * @param options Tùy chọn
+   */
+  clearChatHistory(userId: string, options?: {
+    sessionId?: string;
+    courseId?: string;
+  }): Observable<ApiResponse<null>> {
+    return this.http.request<ApiResponse<null>>('DELETE', `${this.baseUrl}/chat/history`, {
+      body: {
+        user_id: userId,
+        session_id: options?.sessionId || null,
+        course_id: options?.courseId || null
+      }
+    });
+  }
+
+  /**
+   * Lấy danh sách file types được hỗ trợ
+   */
+  getSupportedFileTypes(): Observable<ApiResponse<{ supported_types: any; categories: any }>> {
+    return this.http.get<ApiResponse<{ supported_types: any; categories: any }>>(`${this.baseUrl}/supported-files`);
   }
 }

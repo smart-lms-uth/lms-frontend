@@ -68,12 +68,12 @@
             <p class="module-description">{{ module()!.description || 'Không có mô tả' }}</p>
             
             <div class="module-meta">
-              <span class="meta-item" *ngIf="module()!.duration">
+              <span class="meta-item" *ngIf="module()!.estimatedDuration">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"></circle>
                   <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
-                {{ module()!.duration }} phút
+                {{ module()!.estimatedDuration }} phút
               </span>
               <span class="meta-item" *ngIf="isGradableModule()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -99,13 +99,13 @@
         </h3>
         
         <div class="content-preview">
-          <div *ngIf="module()!.type === 'VIDEO' && module()!.contentUrl" class="video-container">
+          <div *ngIf="module()!.type === 'VIDEO' && module()!.resourceUrl" class="video-container">
             <div class="video-placeholder">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
-              <p>{{ module()!.contentUrl }}</p>
-              <a [href]="module()!.contentUrl" target="_blank" class="btn btn--primary">
+              <p>{{ module()!.resourceUrl }}</p>
+              <a [href]="module()!.resourceUrl" target="_blank" class="btn btn--primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
@@ -114,7 +114,7 @@
             </div>
           </div>
           
-          <div *ngIf="module()!.type === 'RESOURCE' && module()!.contentUrl" class="resource-container">
+          <div *ngIf="module()!.type === 'RESOURCE' && module()!.resourceUrl" class="resource-container">
             <div class="resource-info">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -122,10 +122,10 @@
               </svg>
               <div class="resource-details">
                 <p class="resource-name">Tài liệu</p>
-                <p class="resource-url">{{ module()!.contentUrl }}</p>
+                <p class="resource-url">{{ module()!.resourceUrl }}</p>
               </div>
             </div>
-            <a [href]="module()!.contentUrl" target="_blank" class="btn btn--primary">
+            <a [href]="module()!.resourceUrl" target="_blank" class="btn btn--primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
@@ -135,7 +135,7 @@
             </a>
           </div>
           
-          <div *ngIf="!module()!.contentUrl" class="no-content">
+          <div *ngIf="!module()!.resourceUrl" class="no-content">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -143,6 +143,20 @@
             </svg>
             <p>Nội dung chưa được cập nhật</p>
           </div>
+        </div>
+
+        <!-- Instructions Section for VIDEO/RESOURCE -->
+        <div class="instructions-section" *ngIf="getAssignmentInstructions()">
+          <h4 class="instructions-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Hướng dẫn chi tiết
+          </h4>
+          <div class="instructions-content markdown-body" [innerHTML]="getAssignmentInstructions() | markdown"></div>
         </div>
 
         <!-- Mark as completed -->
@@ -176,6 +190,21 @@
           </svg>
           {{ module()!.type === 'QUIZ' ? 'Bài trắc nghiệm' : 'Bài tập' }}
         </h3>
+
+        <!-- Instructions Section for ASSIGNMENT/QUIZ -->
+        <div class="instructions-section" *ngIf="getAssignmentInstructions()">
+          <h4 class="instructions-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <line x1="10" y1="9" x2="8" y2="9"/>
+            </svg>
+            {{ module()!.type === 'QUIZ' ? 'Hướng dẫn làm bài' : 'Hướng dẫn bài tập' }}
+          </h4>
+          <div class="instructions-content markdown-body" [innerHTML]="getAssignmentInstructions() | markdown"></div>
+        </div>
 
         <!-- My Grade Display -->
         <div class="my-grade-section">
@@ -406,7 +435,7 @@
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
-              <span>Thời gian: {{ module()!.duration || 30 }} phút</span>
+              <span>Thời gian: {{ module()!.estimatedDuration || 30 }} phút</span>
             </div>
             <div class="quiz-stat">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -1,0 +1,110 @@
+<div class="modal-overlay" *ngIf="isVisible" (click)="onClose()">
+  <div class="modal-content" [class.modal-content--large]="isQuizType" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 class="modal-title">{{ modalTitle }}</h3>
+      <button class="modal-close" (click)="onClose()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Tiêu đề <span class="required">*</span></label>
+        <input type="text" class="form-input" [(ngModel)]="title" placeholder="Nhập tiêu đề module">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mô tả</label>
+        <textarea class="form-input form-textarea" [(ngModel)]="description" placeholder="Nhập mô tả (tùy chọn)" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Loại module <span class="required">*</span></label>
+        <select class="form-input form-select" [(ngModel)]="type">
+          <option value="VIDEO">Video bài giảng</option>
+          <option value="RESOURCE">Tài liệu</option>
+          <option value="QUIZ">Trắc nghiệm</option>
+          <option value="ASSIGNMENT">Bài tập</option>
+          <option value="LIVESTREAM">Livestream</option>
+          <option value="FORUM">Thảo luận</option>
+        </select>
+      </div>
+
+      <div class="form-group" *ngIf="!isQuizType">
+        <label class="form-label">URL nội dung</label>
+        <input type="text" class="form-input" [(ngModel)]="resourceUrl" placeholder="Nhập URL video/tài liệu (tùy chọn)">
+      </div>
+
+      <div class="grade-config" *ngIf="isGradeableType">
+        <div class="grade-config-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>Cấu hình điểm</span>
+        </div>
+        <div class="grade-config-row">
+          <div class="form-group form-group--half">
+            <label class="form-label">Điểm tối đa</label>
+            <input type="number" class="form-input" [(ngModel)]="maxScore" placeholder="10" min="0" max="100" step="0.5">
+          </div>
+          <div class="form-group form-group--half">
+            <label class="form-label">Trọng số (%)</label>
+            <input type="number" class="form-input" [(ngModel)]="scoreWeight" placeholder="0" min="0" max="100" step="1">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Loại điểm</label>
+          <select class="form-input form-select" [(ngModel)]="gradeType">
+            <option [ngValue]="null">-- Chưa chọn --</option>
+            <option value="PROCESS">Điểm quá trình</option>
+            <option value="FINAL">Điểm kết thúc</option>
+          </select>
+        </div>
+        <div class="form-group form-group--inline">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="isShowInGradeTable" class="checkbox-input">
+            <span>Hiển thị trong bảng điểm</span>
+          </label>
+        </div>
+      </div>
+
+      <app-quiz-settings
+        *ngIf="isQuizType"
+        [settings]="quizSettings"
+        [chapters]="chapters"
+        [questions]="questions"
+        [questionsByChapter]="questionsByChapter"
+        [selectedChapterIds]="selectedChapterIds"
+        [selectedQuestionIds]="selectedQuestionIds"
+        [isChaptersLoading]="isChaptersLoading"
+        [isQuestionsLoading]="isQuestionsLoading"
+        [activeTab]="activeQuizTab"
+        (settingsChange)="onSettingsChange($event)"
+        (tabChange)="onTabChange($event)"
+        (chapterToggle)="onChapterToggle($event)"
+        (questionToggle)="onQuestionToggle($event)"
+        (openAiModal)="onOpenAiModal()">
+      </app-quiz-settings>
+
+      <div class="form-group form-group--inline">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="visible" class="checkbox-input">
+          <span>Hiển thị module</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn--outline" (click)="onClose()">Hủy</button>
+      <button class="btn btn--primary btn--create" (click)="onSave()" [disabled]="!isValid">
+        {{ isEditMode ? 'Cập nhật' : 'Tạo module' }}
+      </button>
+    </div>
+  </div>
+</div>

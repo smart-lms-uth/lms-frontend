@@ -65,23 +65,23 @@ export class TeacherCourseGradesComponent {
   isSelectingProcessGrades = signal(false);
   isSelectingFinalGrades = signal(false);
   selectedModulesForGradeType = signal<Set<number>>(new Set());
-  
+
   // Weight editing
   editingWeightModuleId = signal<number | null>(null);
   tempWeight = signal<number>(0);
-  
+
   // Grade editing - inline edit mode
   isEditMode = signal(false);  // Toggle edit mode for grades
-  editingCell = signal<{studentIndex: number, moduleId: number} | null>(null);
+  editingCell = signal<{ studentIndex: number, moduleId: number } | null>(null);
   tempGrade = signal<string>('');
-  
+
   // Pending grade changes (for batch save)
-  pendingGradeChanges = signal<Map<string, {enrollmentId: number, moduleId: number, score: number | null}>>(new Map());
-  
+  pendingGradeChanges = signal<Map<string, { enrollmentId: number, moduleId: number, score: number | null }>>(new Map());
+
   // Pending changes for save - single save button
   pendingChanges = signal<Map<number, ModuleGradeConfigRequest>>(new Map());
   isSaving = signal(false);
-  
+
   hasPendingChanges(): boolean {
     return this.pendingChanges().size > 0;
   }
@@ -99,11 +99,11 @@ export class TeacherCourseGradesComponent {
   async loadGrades() {
     this.studentsLoading.set(true);
     this.pendingChanges.set(new Map()); // Reset pending changes
-    
+
     try {
       // Call real API to get course grades
       const gradesData = await this.gradeService.getCourseGrades(this.courseId).toPromise();
-      
+
       if (gradesData) {
         // Map modules from API response
         const assignments: AssignmentModule[] = gradesData.modules.map(mod => ({
@@ -114,44 +114,24 @@ export class TeacherCourseGradesComponent {
           scoreWeight: mod.scoreWeight,
           gradeType: mod.gradeType,
           isShowInGradeTable: mod.isShowInGradeTable ?? true,
-          isVirtual: false
+          isVirtual: false,
+          // Đánh dấu loại module để styling
+          moduleType: (mod as any).moduleType
         }));
 
-        // Add virtual modules for Attendance (CC) and Bonus at the beginning
-        // These will appear alongside regular modules and can be selected for PROCESS
-        // Nếu weight > 0 thì coi như đã được chọn (gradeType = 'PROCESS')
-        const savedAttendanceWeight = (gradesData as any).attendanceWeight ?? 0;
-        const savedBonusWeight = (gradesData as any).bonusWeight ?? 0;
-        
-        const attendanceModule: AssignmentModule = {
-          id: TeacherCourseGradesComponent.ATTENDANCE_MODULE_ID,
-          title: 'Điểm CC',
-          sectionTitle: 'Điểm thưởng',
-          maxScore: 10,
-          scoreWeight: savedAttendanceWeight > 0 ? savedAttendanceWeight : 10, // Default 10% nếu chưa config
-          gradeType: savedAttendanceWeight > 0 ? 'PROCESS' : undefined, // Chỉ PROCESS nếu đã được chọn
-          isShowInGradeTable: true,
-          isVirtual: true,
-          virtualType: 'ATTENDANCE'
-        };
+        // Sắp xếp: ATTENDANCE và BONUS modules ở đầu, sau đó đến các module khác
+        const sortedAssignments = assignments.sort((a, b) => {
+          const typeOrder = (title: string) => {
+            if (title.toLowerCase().includes('chuyên cần') || title.toLowerCase().includes('attendance')) return 0;
+            if (title.toLowerCase().includes('điểm cộng') || title.toLowerCase().includes('bonus')) return 1;
+            return 2;
+          };
+          return typeOrder(a.title) - typeOrder(b.title);
+        });
 
-        const bonusModule: AssignmentModule = {
-          id: TeacherCourseGradesComponent.BONUS_MODULE_ID,
-          title: 'Điểm cộng',
-          sectionTitle: 'Điểm thưởng',
-          maxScore: 10,
-          scoreWeight: savedBonusWeight > 0 ? savedBonusWeight : 5, // Default 5% nếu chưa config
-          gradeType: savedBonusWeight > 0 ? 'PROCESS' : undefined, // Chỉ PROCESS nếu đã được chọn
-          isShowInGradeTable: true,
-          isVirtual: true,
-          virtualType: 'BONUS'
-        };
+        this.assignmentModules.set(sortedAssignments);
 
-        // Add virtual modules at the start (or end, depending on preference)
-        const allAssignments = [attendanceModule, bonusModule, ...assignments];
-        this.assignmentModules.set(allAssignments);
-
-        // Store course-level weights
+        // Store course-level weights (for backwards compatibility)
         this.attendanceWeight.set((gradesData as any).attendanceWeight ?? 0);
         this.bonusWeight.set((gradesData as any).bonusWeight ?? 0);
 
@@ -162,13 +142,13 @@ export class TeacherCourseGradesComponent {
           for (const [key, value] of Object.entries(student.grades)) {
             grades[parseInt(key, 10)] = value;
           }
-          
+
           // Add virtual module scores to grades map
           const attendanceScore = (student as any).attendanceScore ?? null;
           const bonusScore = (student as any).bonusScore ?? null;
           grades[TeacherCourseGradesComponent.ATTENDANCE_MODULE_ID] = attendanceScore;
           grades[TeacherCourseGradesComponent.BONUS_MODULE_ID] = bonusScore;
-          
+
           return {
             id: index + 1,
             studentId: student.studentCode,
@@ -227,24 +207,58 @@ export class TeacherCourseGradesComponent {
     this.students.set([]);
   }
 
-  getStudentAverage(student: StudentGrade): string {
-    // Điểm TB được tính từ Backend sử dụng công thức:
-    // processScore = Σ(score × moduleWeight) / Σ(processModuleWeights) cho PROCESS modules
-    // finalScore = Σ(score × moduleWeight) / Σ(finalModuleWeights) cho FINAL modules  
-    // averageScore = (processScore × processWeight% + finalScore × finalWeight%) / 100
-    
-    if (student.averageScore !== null && student.averageScore !== undefined) {
-      // Cộng thêm điểm cộng (bonus) nếu có
-      let avg = student.averageScore;
-      if (student.bonus !== null && student.bonus !== undefined) {
-        avg += student.bonus;
+  /**
+   * Tính điểm quá trình = Σ(score × weight/100) cho các module PROCESS
+   */
+  getProcessScore(student: StudentGrade): string {
+    let total = 0;
+    const modules = this.assignmentModules();
+
+    for (const module of modules) {
+      if (module.gradeType === 'PROCESS') {
+        const score = student.grades[module.id];
+        const weight = module.scoreWeight ?? 0;
+        if (score !== null && score !== undefined && weight > 0) {
+          total += score * weight / 100;
+        }
       }
-      // Giữ thang 100, giới hạn max 100
-      avg = Math.min(avg, 100);
-      return avg.toFixed(1);
     }
 
-    return '-';
+    return total > 0 ? total.toFixed(2) : '-';
+  }
+
+  /**
+   * Tính điểm kết thúc = Σ(score × weight/100) cho các module FINAL
+   */
+  getFinalScore(student: StudentGrade): string {
+    let total = 0;
+    const modules = this.assignmentModules();
+
+    for (const module of modules) {
+      if (module.gradeType === 'FINAL') {
+        const score = student.grades[module.id];
+        const weight = module.scoreWeight ?? 0;
+        if (score !== null && score !== undefined && weight > 0) {
+          total += score * weight / 100;
+        }
+      }
+    }
+
+    return total > 0 ? total.toFixed(2) : '-';
+  }
+
+  /**
+   * Điểm học phần = processScore + finalScore
+   */
+  getStudentAverage(student: StudentGrade): string {
+    const processStr = this.getProcessScore(student);
+    const finalStr = this.getFinalScore(student);
+
+    const process = processStr !== '-' ? parseFloat(processStr) : 0;
+    const final = finalStr !== '-' ? parseFloat(finalStr) : 0;
+
+    const total = process + final;
+    return total > 0 ? total.toFixed(2) : '-';
   }
 
   // isShowInGradeTable: true = expanded, false = collapsed
@@ -254,12 +268,12 @@ export class TeacherCourseGradesComponent {
 
     const currentShow = module.isShowInGradeTable ?? true;
     const newShow = !currentShow;
-    
+
     // Update local state
     this.assignmentModules.update(modules =>
       modules.map(m => m.id === moduleId ? { ...m, isShowInGradeTable: newShow } : m)
     );
-    
+
     // Add to pending changes
     this.addPendingChange(moduleId, { isShowInGradeTable: newShow });
   }
@@ -268,7 +282,7 @@ export class TeacherCourseGradesComponent {
     const module = this.assignmentModules().find(m => m.id === moduleId);
     return !(module?.isShowInGradeTable ?? true); // false = collapsed
   }
-  
+
   // Add change to pending changes map
   private addPendingChange(moduleId: number, change: Partial<ModuleGradeConfigRequest>) {
     this.pendingChanges.update(map => {
@@ -280,7 +294,7 @@ export class TeacherCourseGradesComponent {
   }
 
   // === Grade Type Selection Methods ===
-  
+
   startSelectingProcessGrades() {
     this.isSelectingProcessGrades.set(true);
     this.isSelectingFinalGrades.set(false);
@@ -326,9 +340,9 @@ export class TeacherCourseGradesComponent {
   applyGradeTypeSelection() {
     const selectedIds = this.selectedModulesForGradeType();
     const gradeType = this.isSelectingProcessGrades() ? 'PROCESS' : 'FINAL';
-    
+
     // Update local state and add to pending changes
-    this.assignmentModules.update(modules => 
+    this.assignmentModules.update(modules =>
       modules.map(m => {
         if (selectedIds.has(m.id)) {
           // Virtual modules (CC, Bonus) don't need pending changes - only update state
@@ -353,7 +367,7 @@ export class TeacherCourseGradesComponent {
   }
 
   // === Weight Editing Methods ===
-  
+
   startEditingWeight(moduleId: number, currentWeight?: number) {
     this.editingWeightModuleId.set(moduleId);
     this.tempWeight.set(currentWeight ?? 0);
@@ -367,12 +381,12 @@ export class TeacherCourseGradesComponent {
   applyWeight(moduleId: number) {
     const newWeight = this.tempWeight();
     const module = this.assignmentModules().find(m => m.id === moduleId);
-    
+
     // Update local state
     this.assignmentModules.update(modules =>
       modules.map(m => m.id === moduleId ? { ...m, scoreWeight: newWeight } : m)
     );
-    
+
     // Add to pending changes only for real modules (not virtual)
     if (module && !module.isVirtual && moduleId > 0) {
       this.addPendingChange(moduleId, { scoreWeight: newWeight });
@@ -382,34 +396,29 @@ export class TeacherCourseGradesComponent {
   }
 
   // === Save All Changes (Single Save Button) ===
-  
+
   async saveAllChanges() {
     this.isSaving.set(true);
-    
+
     try {
       // Nếu đang trong chế độ selection, tự động apply trước khi lưu
       if (this.isSelectingProcessGrades() || this.isSelectingFinalGrades()) {
         this.applyGradeTypeSelection();
       }
-      
+
       // 1. Cập nhật config module (gradeType, scoreWeight) nếu có pending changes cho real modules
       const realModuleChanges = Array.from(this.pendingChanges().entries())
-        .filter(([id, _]) => id > 0) // Chỉ lấy real modules (id > 0)
+        .filter(([id, _]) => id > 0)
         .map(([_, change]) => change);
-      
+
       if (realModuleChanges.length > 0) {
-        console.log('Saving grade config:', realModuleChanges);
         await this.gradeService.updateModuleGradeConfig(this.courseId, { modules: realModuleChanges }).toPromise();
-        console.log('Grade config saved successfully');
       }
-      
-      // 2. Lưu các thay đổi điểm của từng module (pending grade changes)
+
       const gradeChanges = Array.from(this.pendingGradeChanges().values())
-        .filter(change => change.moduleId > 0); // Chỉ lấy real modules
-      
+        .filter(change => change.moduleId > 0);
+
       if (gradeChanges.length > 0) {
-        console.log('Saving grade changes:', gradeChanges);
-        // Gọi API update điểm cho từng thay đổi
         for (const change of gradeChanges) {
           if (change.score !== null) {
             await this.gradeService.updateGrade(this.courseId, {
@@ -419,31 +428,25 @@ export class TeacherCourseGradesComponent {
             }).toPromise();
           }
         }
-        console.log('Grade changes saved successfully');
       }
-      
+
       // 3. Gọi API lưu bảng điểm và tự động tính điểm học phần
       const modules = this.assignmentModules();
       const students = this.students();
-      
-      // Lấy danh sách module QT và KT (loại bỏ virtual modules)
+
       const processModuleIds = modules
         .filter(m => m.gradeType === 'PROCESS' && !m.isVirtual && m.id > 0)
         .map(m => m.id);
       const finalModuleIds = modules
         .filter(m => m.gradeType === 'FINAL' && !m.isVirtual && m.id > 0)
         .map(m => m.id);
-      
-      // Lấy weight của CC và Bonus từ virtual modules
-      // CHỈ TÍNH NẾU ĐÃ ĐƯỢC TICK (gradeType = 'PROCESS')
+
       const attendanceModule = modules.find(m => m.id === TeacherCourseGradesComponent.ATTENDANCE_MODULE_ID);
       const bonusModule = modules.find(m => m.id === TeacherCourseGradesComponent.BONUS_MODULE_ID);
-      
-      // Nếu không tick (gradeType !== 'PROCESS') thì weight = 0, không tính vào điểm
+
       const attendanceWeight = attendanceModule?.gradeType === 'PROCESS' ? (attendanceModule.scoreWeight ?? 0) : 0;
       const bonusWeight = bonusModule?.gradeType === 'PROCESS' ? (bonusModule.scoreWeight ?? 0) : 0;
-      
-      // Build request để gọi API tính điểm
+
       const request: SaveGradeTableRequest = {
         courseId: this.courseId,
         attendanceWeight: attendanceWeight,
@@ -458,38 +461,29 @@ export class TeacherCourseGradesComponent {
           isBanned: s.isBanned ?? false
         }))
       };
-      
-      console.log('Saving grade table and calculating scores:', request);
+
       const results = await this.gradeService.saveGradeTable(this.courseId, request).toPromise();
-      console.log('Grade calculation results:', results);
-      
-      // 4. Cập nhật điểm hiển thị từ kết quả
+
       if (results) {
         this.updateStudentScoresFromResults(results);
       }
-      
-      // 5. Clear all pending changes and turn off edit mode
+
       this.pendingChanges.set(new Map());
       this.pendingGradeChanges.set(new Map());
       this.isEditMode.set(false);
-      
-      // 6. Reload grades
+
       await this.loadGrades();
-      
-    } catch (error) {
-      console.error('Error saving changes:', error);
+
+    } catch {
     } finally {
       this.isSaving.set(false);
     }
   }
 
-  /**
-   * Cập nhật điểm hiển thị từ kết quả tính toán
-   */
   private updateStudentScoresFromResults(results: CalculatedGradeResponse[]) {
     const resultMap = new Map(results.map(r => [r.enrollmentId, r]));
-    
-    this.students.update(students => 
+
+    this.students.update(students =>
       students.map(s => {
         const result = resultMap.get(s.enrollmentId);
         if (result) {
@@ -503,7 +497,7 @@ export class TeacherCourseGradesComponent {
       })
     );
   }
-  
+
   discardAllChanges() {
     // Reload from API to discard local changes
     this.loadGrades();
@@ -548,8 +542,8 @@ export class TeacherCourseGradesComponent {
 
   // Kiểm tra mỗi nhóm (QT/KT) phải = 100% riêng
   isProcessWeightValid(): boolean {
-    const processWeight = this.isSelectingProcessGrades() 
-      ? this.getSelectedModulesWeight() 
+    const processWeight = this.isSelectingProcessGrades()
+      ? this.getSelectedModulesWeight()
       : this.getProcessModulesWeight();
     // Nếu không có module PROCESS thì coi như valid
     const hasProcessModules = this.isSelectingProcessGrades()
@@ -634,11 +628,11 @@ export class TeacherCourseGradesComponent {
     }
 
     // Update local state
-    this.students.update(list => 
+    this.students.update(list =>
       list.map((s, idx) => {
         if (idx === studentIndex) {
           const newGrades = { ...s.grades, [moduleId]: newScore };
-          
+
           // Cập nhật attendance và bonus nếu là virtual module
           let newAttendance = s.attendance;
           let newBonus = s.bonus;
@@ -647,7 +641,7 @@ export class TeacherCourseGradesComponent {
           } else if (moduleId === TeacherCourseGradesComponent.BONUS_MODULE_ID) {
             newBonus = newScore;
           }
-          
+
           return { ...s, grades: newGrades, attendance: newAttendance, bonus: newBonus };
         }
         return s;
@@ -677,7 +671,7 @@ export class TeacherCourseGradesComponent {
     if (event.key === 'Enter') {
       event.preventDefault();
       this.applyGradeEdit(studentIndex, moduleId);
-      
+
       // Move to next cell (same column, next row)
       const students = this.students();
       if (studentIndex < students.length - 1) {
@@ -689,7 +683,7 @@ export class TeacherCourseGradesComponent {
     } else if (event.key === 'Tab') {
       event.preventDefault();
       this.applyGradeEdit(studentIndex, moduleId);
-      
+
       // Move to next column (same row)
       const modules = this.assignmentModules().filter(m => !this.isColumnCollapsed(m.id));
       const currentModuleIndex = modules.findIndex(m => m.id === moduleId);
@@ -730,5 +724,44 @@ export class TeacherCourseGradesComponent {
   isStudentBanned(studentIndex: number): boolean {
     const student = this.students()[studentIndex];
     return student?.isBanned ?? false;
+  }
+
+  // ==================== EXPORT EXCEL METHODS ====================
+
+  isExporting = signal(false);
+
+  /**
+   * Xuất bảng điểm ra file Excel
+   */
+  exportToExcel() {
+    this.isExporting.set(true);
+
+    this.gradeService.exportGradesToExcel(this.courseId).subscribe({
+      next: (blob) => {
+        // Create proper xlsx blob with correct MIME type
+        const excelBlob = new Blob([blob], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+
+        // Create download link
+        const url = window.URL.createObjectURL(excelBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `bang_diem_${this.courseId}.xlsx`;
+
+        // Append to body, click, then remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        window.URL.revokeObjectURL(url);
+        this.isExporting.set(false);
+      },
+      error: (error) => {
+        console.error('Error exporting grades:', error);
+        this.isExporting.set(false);
+        // You can add a toast notification here
+      }
+    });
   }
 }

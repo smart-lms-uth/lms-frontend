@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { CourseService, Course, Section, Module } from '../../services/course.service';
+import { CourseService, Course, Section, Module, AssignmentSettings } from '../../services/course.service';
 import { GradeService } from '../../services/grade.service';
 import { AuthService, User } from '../../services/auth.service';
 import { ProgressService } from '../../services/progress.service';
@@ -10,6 +10,7 @@ import { ActivityService } from '../../services/activity.service';
 import { SubmissionService, AssignmentSubmission, UploadProgress } from '../../services/submission.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
+import { MarkdownPipe } from '../../pipes/markdown.pipe';
 
 @Component({
   selector: 'app-student-module-detail',
@@ -21,7 +22,8 @@ import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } fr
     MainLayoutComponent,
     CardComponent,
     BadgeComponent,
-    BreadcrumbComponent
+    BreadcrumbComponent,
+    MarkdownPipe
   ],
   templateUrl: './student-module-detail.component.html',
   styleUrls: ['./student-module-detail.component.scss']
@@ -171,7 +173,8 @@ export class StudentModuleDetailComponent implements OnInit, OnDestroy {
             if (module.type === 'VIDEO') {
               this.activityService.trackVideoPlay(
                 this.moduleId()!.toString(),
-                module.title
+                module.title,
+                this.courseId()!.toString()
               );
             } else if (module.type === 'ASSIGNMENT') {
               this.activityService.trackAssignmentView(
@@ -280,6 +283,15 @@ export class StudentModuleDetailComponent implements OnInit, OnDestroy {
   isContentModule(): boolean {
     const type = this.module()?.type;
     return type === 'VIDEO' || type === 'RESOURCE';
+  }
+
+  getAssignmentInstructions(): string {
+    const mod = this.module();
+    if (!mod || !mod.settings) return '';
+    
+    // Instructions có thể có trong tất cả loại settings
+    const settings = mod.settings as any;
+    return settings.instructions || '';
   }
 
   // Mark as completed (for VIDEO/RESOURCE)

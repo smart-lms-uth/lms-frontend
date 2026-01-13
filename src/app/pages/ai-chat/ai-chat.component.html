@@ -1,285 +1,350 @@
-<div class="ai-chat">
-  <!-- Sidebar -->
-  <aside class="ai-chat__sidebar">
-    <div class="ai-chat__sidebar-header">
-      <a routerLink="/dashboard" class="ai-chat__back-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6"/>
-        </svg>
-        <span>Quay lại</span>
-      </a>
-    </div>
-
-    <button class="ai-chat__new-chat" (click)="clearChat()">
+<div class="ai-agent" [class.ai-agent--preview-mode]="previewTabs.length > 0" [class.ai-agent--sidebar-hidden]="!showHistorySidebar">
+  <div class="ai-agent__topbar">
+    <a [routerLink]="backLink" class="ai-agent__back-btn">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 5v14M5 12h14"/>
+        <path d="m15 18-6-6 6-6" />
       </svg>
-      <span>Cuộc trò chuyện mới</span>
-    </button>
-
-    <!-- Course Selector Button -->
-    <div class="ai-chat__course-selector">
-      <label class="ai-chat__course-label">Ngữ cảnh khóa học</label>
-      <button 
-        class="ai-chat__course-btn"
-        [class.ai-chat__course-btn--selected]="selectedCourse"
-        (click)="openCourseSelector()">
+      <span>Quay lại</span>
+    </a>
+  </div>
+  <aside class="ai-agent__history-sidebar" [class.ai-agent__history-sidebar--hidden]="!showHistorySidebar">
+    <div class="ai-agent__history-header">
+      <h3>
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+          <path d="M12 8v4l3 3"/>
+          <circle cx="12" cy="12" r="10"/>
         </svg>
-        <span *ngIf="!selectedCourse">Chọn khóa học...</span>
-        <span *ngIf="selectedCourse" class="ai-chat__course-selected-name">
-          {{ selectedCourse.subjectName }}
-        </span>
+        Lịch sử
+      </h3>
+      <button class="ai-agent__new-chat-btn" (click)="startNewSession()" title="Cuộc hội thoại mới">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14"/>
+          <path d="M5 12h14"/>
+        </svg>
       </button>
-      <div class="ai-chat__course-info" *ngIf="selectedCourse">
-        <span class="ai-chat__course-code">{{ selectedCourse.courseCode }}</span>
-        <span class="ai-chat__course-semester">{{ selectedCourse.semesterCode }}</span>
-        <button class="ai-chat__course-clear" (click)="clearCourseSelection()" title="Bỏ chọn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 6 6 18M6 6l12 12"/>
+    </div>
+    
+    <div class="ai-agent__history-list">
+      <div class="ai-agent__history-loading" *ngIf="isLoadingHistory">
+        <div class="ai-agent__spinner-small"></div>
+        <span>Đang tải...</span>
+      </div>
+      
+      <div class="ai-agent__history-empty" *ngIf="!isLoadingHistory && chatSessions.length === 0">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <p>Chưa có lịch sử</p>
+      </div>
+      
+      <div class="ai-agent__history-item" 
+           *ngFor="let session of chatSessions"
+           [class.ai-agent__history-item--active]="currentSessionId === session.id"
+           (click)="loadSession(session)">
+        <div class="ai-agent__history-item-icon">
+          <i class="icon icon--{{ session.mode }}"></i>
+        </div>
+        <div class="ai-agent__history-item-content">
+          <span class="ai-agent__history-item-title">{{ session.title }}</span>
+          <span class="ai-agent__history-item-preview">{{ session.preview }}</span>
+          <span class="ai-agent__history-item-meta">
+            {{ session.timestamp | date:'dd/MM HH:mm' }} • {{ session.messageCount }} tin
+          </span>
+        </div>
+        <button class="ai-agent__history-item-delete" (click)="deleteSession(session, $event)" title="Xóa">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18"/>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
           </svg>
         </button>
       </div>
     </div>
-
-    <div class="ai-chat__history">
-      <h3 class="ai-chat__history-title">Lịch sử chat</h3>
-      <div class="ai-chat__history-empty">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        <p>Chưa có cuộc trò chuyện nào</p>
-      </div>
-    </div>
-
-    <div class="ai-chat__sidebar-footer">
-      <div class="ai-chat__model-info">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 8V4H8"/>
-          <rect width="16" height="12" x="4" y="8" rx="2"/>
-          <path d="M2 14h2"/>
-          <path d="M20 14h2"/>
-          <path d="M15 13v2"/>
-          <path d="M9 13v2"/>
-        </svg>
-        <span>LMS AI Assistant</span>
-      </div>
-    </div>
   </aside>
 
-  <!-- Main Chat Area -->
-  <main class="ai-chat__main">
-    <!-- Welcome Screen (when no messages) -->
-    <div class="ai-chat__welcome" *ngIf="messages.length === 0">
-      <div class="ai-chat__welcome-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 8V4H8"/>
-          <rect width="16" height="12" x="4" y="8" rx="2"/>
-          <path d="M2 14h2"/>
-          <path d="M20 14h2"/>
-          <path d="M15 13v2"/>
-          <path d="M9 13v2"/>
-        </svg>
-      </div>
-      <h1 class="ai-chat__welcome-title">Xin chào! Tôi là AI Assistant</h1>
-      <p class="ai-chat__welcome-subtitle">
-        Tôi có thể giúp bạn giải đáp thắc mắc về bài học, debug code, 
-        giải thích khái niệm và nhiều hơn nữa.
-      </p>
+  <button class="ai-agent__toggle-sidebar" (click)="toggleHistorySidebar()" [title]="showHistorySidebar ? 'Ẩn lịch sử' : 'Hiện lịch sử'">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path *ngIf="showHistorySidebar" d="M15 18l-6-6 6-6"/>
+      <path *ngIf="!showHistorySidebar" d="M9 18l6-6-6-6"/>
+    </svg>
+  </button>
 
-      <div class="ai-chat__suggestions">
-        <h3>Thử hỏi tôi về:</h3>
-        <div class="ai-chat__suggestions-grid">
-          <button 
-            *ngFor="let q of suggestedQuestions" 
-            class="ai-chat__suggestion-card"
-            (click)="askSuggestedQuestion(q.text)">
-            <span class="ai-chat__suggestion-icon">{{ q.icon }}</span>
-            <span class="ai-chat__suggestion-text">{{ q.text }}</span>
+  <app-ai-chat-panel
+    [messages]="messages"
+    [isLoading]="isLoading"
+    [currentMode]="currentMode"
+    (sendMessage)="onSendMessage($event)"
+    (sendMessageWithFile)="onSendMessageWithFile($event)"
+    (modeChange)="onModeChange($event)"
+    (clearChat)="onClearChat()"
+    (openPreview)="onOpenPreview($event)">
+  </app-ai-chat-panel>
+
+  <div class="ai-agent__preview-area" *ngIf="previewTabs.length > 0">
+    <div class="ai-agent__preview-tabs-header">
+      <div class="ai-agent__preview-tabs">
+        <div class="ai-agent__preview-tab" 
+             *ngFor="let tab of previewTabs"
+             [class.ai-agent__preview-tab--active]="activeTabId === tab.id"
+             (click)="selectTab(tab)">
+          <span class="ai-agent__preview-tab-icon">{{ tab.icon }}</span>
+          <span class="ai-agent__preview-tab-title">{{ tab.title }}</span>
+          <button class="ai-agent__preview-tab-close" (click)="closeTab(tab, $event)" title="Đóng">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18"/>
+              <path d="M6 6l12 12"/>
+            </svg>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Messages Area -->
-    <div class="ai-chat__messages" #messagesContainer *ngIf="messages.length > 0">
-      <div 
-        *ngFor="let message of messages; trackBy: trackByMessageId" 
-        class="ai-chat__message"
-        [class.ai-chat__message--user]="message.role === 'user'"
-        [class.ai-chat__message--assistant]="message.role === 'assistant'">
-        
-        <!-- Avatar -->
-        <div class="ai-chat__message-avatar">
-          <ng-container *ngIf="message.role === 'user'">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-          </ng-container>
-          <ng-container *ngIf="message.role === 'assistant'">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 8V4H8"/>
-              <rect width="16" height="12" x="4" y="8" rx="2"/>
-              <path d="M2 14h2"/>
-              <path d="M20 14h2"/>
-              <path d="M15 13v2"/>
-              <path d="M9 13v2"/>
-            </svg>
-          </ng-container>
-        </div>
+    <div class="ai-agent__preview-content">
+      <app-ai-course-preview
+        *ngIf="coursePreview"
+        [coursePreview]="coursePreview"
+        [isSaving]="isSaving"
+        [isEditMode]="!!editingCourseId"
+        (resetPreview)="onResetPreview()"
+        (saveCourse)="onSaveCourse()"
+        (createNewCourse)="onCreateNewCourse()"
+        (openModuleConfig)="onOpenModuleConfig($event)">
+      </app-ai-course-preview>
 
-        <!-- Content -->
-        <div class="ai-chat__message-content">
-          <!-- Typing Indicator -->
-          <div class="ai-chat__typing" *ngIf="message.isTyping">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-
-          <!-- Message Text -->
-          <div class="ai-chat__message-text" *ngIf="!message.isTyping" [innerHTML]="message.content | markdown"></div>
-
-          <!-- Message Actions -->
-          <div class="ai-chat__message-actions" *ngIf="!message.isTyping && message.role === 'assistant'">
-            <button class="ai-chat__message-action" title="Sao chép" (click)="copyMessage(message.content)">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <main class="ai-agent__preview-panel" *ngIf="lecturePreview && !coursePreview">
+        <div class="ai-agent__preview-header">
+          <h1 class="ai-agent__preview-title">
+            <i class="icon icon--lecture"></i>
+            Bài giảng được tạo
+          </h1>
+          <div class="ai-agent__preview-actions">
+            <button class="ai-agent__action-btn ai-agent__action-btn--secondary" (click)="onResetPreview()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </svg>
+              Đóng
+            </button>
+            <button class="ai-agent__action-btn ai-agent__action-btn--primary" (click)="copyLecture()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
                 <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
               </svg>
+              Sao chép
             </button>
           </div>
-
-          <!-- Timestamp -->
-          <span class="ai-chat__message-time">{{ formatTime(message.timestamp) }}</span>
         </div>
-      </div>
-    </div>
 
-    <!-- Input Area -->
-    <div class="ai-chat__input-area">
-      <!-- Context indicator -->
-      <div class="ai-chat__context-bar" *ngIf="selectedCourse">
-        <span class="ai-chat__context-label">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
-          </svg>
-          {{ selectedCourse.subjectName }} ({{ selectedCourse.courseCode }})
-        </span>
-      </div>
-      
-      <div class="ai-chat__input-container">
-        <textarea
-          #messageInput
-          class="ai-chat__input"
-          [(ngModel)]="inputMessage"
-          (keydown)="onKeyDown($event)"
-          placeholder="Nhập câu hỏi của bạn..."
-          rows="1"
-          [disabled]="isLoading">
-        </textarea>
-        
-        <button 
-          class="ai-chat__send-btn" 
-          [disabled]="!inputMessage.trim() || isLoading"
-          (click)="sendMessage()">
-          <svg *ngIf="!isLoading" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m22 2-7 20-4-9-9-4Z"/>
-            <path d="M22 2 11 13"/>
-          </svg>
-          <svg *ngIf="isLoading" class="ai-chat__spinner" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-        </button>
-      </div>
-      <p class="ai-chat__disclaimer">
-        AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
-      </p>
-    </div>
-  </main>
-</div>
-
-<!-- Course Selector Modal -->
-<div class="modal-overlay" *ngIf="showCourseModal" (click)="closeCourseSelector()">
-  <div class="modal-content course-modal" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2>Chọn khóa học</h2>
-      <button class="modal-close" (click)="closeCourseSelector()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 6 6 18M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-    
-    <div class="modal-body">
-      <!-- Filters -->
-      <div class="course-filters">
-        <div class="filter-group">
-          <label>Học kỳ</label>
-          <select [(ngModel)]="selectedSemesterId">
-            <option [ngValue]="null">Tất cả học kỳ</option>
-            <option *ngFor="let sem of semesters" [ngValue]="sem.id">
-              {{ sem.displayName }}
-              <span *ngIf="sem.isCurrent">(Hiện tại)</span>
-            </option>
-          </select>
-        </div>
-        
-        <div class="filter-group search-group">
-          <label>Tìm kiếm</label>
-          <input 
-            type="text" 
-            [(ngModel)]="courseSearchText" 
-            placeholder="Tên môn học, mã lớp..."
-          />
-        </div>
-      </div>
-      
-      <!-- Course List -->
-      <div class="course-list" *ngIf="!isLoadingCourses">
-        <div 
-          *ngFor="let course of filteredCourses" 
-          class="course-item"
-          [class.course-item--selected]="selectedCourse?.id === course.id"
-          (click)="selectCourse(course)">
-          <div class="course-item__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
-            </svg>
+        <div class="ai-agent__lecture-content">
+          <div class="ai-agent__lecture-header" *ngIf="lecturePreview.lecture_title || lecturePreview.title">
+            <h2>{{ lecturePreview.lecture_title || lecturePreview.title }}</h2>
           </div>
-          <div class="course-item__info">
-            <div class="course-item__name">{{ course.subjectName }}</div>
-            <div class="course-item__meta">
-              <span class="course-code">{{ course.courseCode }}</span>
-              <span class="course-semester">{{ course.semesterCode }}</span>
-              <span class="course-status" [class]="'status-' + course.status.toLowerCase()">
-                {{ course.status }}
-              </span>
+
+          <div class="ai-agent__lecture-sections" *ngIf="lecturePreview.sections">
+            <div class="ai-agent__lecture-section" *ngFor="let section of lecturePreview.sections; let i = index">
+              <div class="ai-agent__lecture-section-header">
+                <span class="ai-agent__lecture-section-number">{{ i + 1 }}</span>
+                <h3>{{ section.heading || section.title }}</h3>
+              </div>
+              <div class="ai-agent__lecture-section-content" *ngIf="section.content">
+                <p [innerHTML]="section.content | markdown"></p>
+              </div>
+              <div class="ai-agent__lecture-examples" *ngIf="section.examples?.length > 0">
+                <h4><i class="icon icon--lightbulb"></i> Ví dụ:</h4>
+                <pre *ngFor="let example of section.examples">{{ example }}</pre>
+              </div>
+              <div class="ai-agent__lecture-key-points" *ngIf="section.keyPoints?.length > 0 || section.key_points?.length > 0">
+                <h4><i class="icon icon--pin"></i> Điểm chính:</h4>
+                <ul>
+                  <li *ngFor="let point of (section.keyPoints || section.key_points)">{{ point }}</li>
+                </ul>
+              </div>
             </div>
           </div>
-          <div class="course-item__check" *ngIf="selectedCourse?.id === course.id">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+
+          <div class="ai-agent__lecture-raw" *ngIf="!lecturePreview.sections && lecturePreview.content">
+            <div [innerHTML]="lecturePreview.content | markdown"></div>
           </div>
         </div>
-        
-        <div class="course-list__empty" *ngIf="filteredCourses.length === 0">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.3-4.3"/>
-          </svg>
-          <p>Không tìm thấy khóa học nào</p>
+      </main>
+
+      <main class="ai-agent__preview-panel" *ngIf="quizPreview && !coursePreview && !lecturePreview">
+        <div class="ai-agent__preview-header">
+          <h1 class="ai-agent__preview-title">
+            <i class="icon icon--quiz"></i>
+            Quiz được tạo
+          </h1>
+          <div class="ai-agent__preview-actions">
+            <button class="ai-agent__action-btn ai-agent__action-btn--toggle" (click)="toggleQuizViewMode()">
+              <svg *ngIf="quizViewMode === 'preview'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              <svg *ngIf="quizViewMode === 'code'" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              {{ quizViewMode === 'preview' ? 'Code' : 'Preview' }}
+            </button>
+            <button class="ai-agent__action-btn ai-agent__action-btn--secondary" (click)="onResetPreview()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </svg>
+              Đóng
+            </button>
+            <button class="ai-agent__action-btn ai-agent__action-btn--primary" (click)="copyQuiz()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+              Sao chép
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <!-- Loading -->
-      <div class="course-list__loading" *ngIf="isLoadingCourses">
-        <div class="spinner"></div>
-        <p>Đang tải danh sách khóa học...</p>
-      </div>
+
+        <div class="ai-agent__quiz-content">
+          <div class="ai-agent__quiz-info" *ngIf="quizPreview.topic || quizPreview.subject">
+            <span class="ai-agent__quiz-topic"><i class="icon icon--course"></i> {{ quizPreview.topic || quizPreview.subject }}</span>
+            <span class="ai-agent__quiz-count" *ngIf="quizPreview.questions?.length">{{ quizPreview.questions.length }} câu hỏi</span>
+          </div>
+
+          <div class="ai-agent__quiz-code-view" *ngIf="quizViewMode === 'code'">
+            <pre class="code-block"><code>{{ quizPreview | json }}</code></pre>
+          </div>
+
+          <div class="ai-agent__quiz-questions" *ngIf="quizViewMode === 'preview' && quizPreview.questions">
+            <div class="ai-agent__quiz-question" *ngFor="let question of quizPreview.questions; let qi = index">
+              <div class="ai-agent__quiz-question-header">
+                <span class="ai-agent__quiz-question-number">Câu {{ qi + 1 }}</span>
+                <span class="ai-agent__quiz-type-badge" [class.multi]="question.type === 'MULTI'">
+                  {{ question.type === 'MULTI' ? '☑ Nhiều đáp án' : '○ Một đáp án' }}
+                </span>
+                <span class="ai-agent__quiz-difficulty" *ngIf="question.level || question.difficulty">
+                  {{ question.level || question.difficulty }}
+                </span>
+              </div>
+              <div class="ai-agent__quiz-question-text">
+                <markdown [data]="question.question || question.content || question.text"></markdown>
+              </div>
+              <div class="ai-agent__quiz-options" *ngIf="question.options || question.answers">
+                <div class="ai-agent__quiz-option" 
+                     *ngFor="let opt of (question.options || question.answers); let oi = index"
+                     [class.ai-agent__quiz-option--correct]="isCorrectAnswer(question, opt, oi)">
+                  <span class="ai-agent__quiz-option-letter">{{ getOptionLetter(oi) }}</span>
+                  <span class="ai-agent__quiz-option-text">
+                    <markdown [data]="opt.text || opt.content || opt"></markdown>
+                  </span>
+                  <span class="ai-agent__quiz-correct-badge" *ngIf="isCorrectAnswer(question, opt, oi)">✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <main class="ai-agent__preview-panel" *ngIf="assignmentPreview && !coursePreview && !lecturePreview && !quizPreview">
+        <div class="ai-agent__preview-header">
+          <h1 class="ai-agent__preview-title">
+            <i class="icon icon--assignment"></i>
+            Bài tập được tạo
+          </h1>
+          <div class="ai-agent__preview-actions">
+            <button class="ai-agent__action-btn ai-agent__action-btn--secondary" (click)="onResetPreview()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M8 16H3v5"/>
+              </svg>
+              Đóng
+            </button>
+            <button class="ai-agent__action-btn ai-agent__action-btn--primary" (click)="copyAssignment()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+              Sao chép
+            </button>
+          </div>
+        </div>
+
+        <div class="ai-agent__assignment-content">
+          <div class="ai-agent__assignment-header" *ngIf="assignmentPreview.title">
+            <h2>{{ assignmentPreview.title }}</h2>
+          </div>
+
+          <div class="ai-agent__assignment-description" *ngIf="assignmentPreview.description">
+            <h3><i class="icon icon--lecture"></i> Mô tả</h3>
+            <div [innerHTML]="assignmentPreview.description | markdown"></div>
+          </div>
+
+          <div class="ai-agent__assignment-requirements" *ngIf="assignmentPreview.requirements?.length > 0">
+            <h3><i class="icon icon--check"></i> Yêu cầu</h3>
+            <ul>
+              <li *ngFor="let req of assignmentPreview.requirements">{{ req }}</li>
+            </ul>
+          </div>
+
+          <div class="ai-agent__assignment-tasks" *ngIf="assignmentPreview.tasks?.length > 0">
+            <h3><i class="icon icon--assignment"></i> Nhiệm vụ</h3>
+            <div class="ai-agent__assignment-task" *ngFor="let task of assignmentPreview.tasks; let ti = index">
+              <span class="ai-agent__assignment-task-number">{{ ti + 1 }}</span>
+              <div class="ai-agent__assignment-task-content">
+                <strong>{{ task.title || task.name }}</strong>
+                <p *ngIf="task.description">{{ task.description }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-agent__assignment-rubric" *ngIf="assignmentPreview.rubric || assignmentPreview.scoring">
+            <h3><i class="icon icon--star"></i> Tiêu chí chấm điểm</h3>
+            <div class="ai-agent__rubric-items">
+              <div class="ai-agent__rubric-item" *ngFor="let item of (assignmentPreview.rubric || assignmentPreview.scoring)">
+                <span class="ai-agent__rubric-criteria">{{ item.criteria || item.name }}</span>
+                <span class="ai-agent__rubric-points">{{ item.points || item.weight }} điểm</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-agent__assignment-raw" *ngIf="!assignmentPreview.tasks && !assignmentPreview.requirements && assignmentPreview.content">
+            <div [innerHTML]="assignmentPreview.content | markdown"></div>
+          </div>
+        </div>
+      </main>
     </div>
   </div>
+
+  <main class="ai-agent__empty-preview" *ngIf="previewTabs.length === 0">
+    <div class="ai-agent__empty-content">
+      <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+        <path d="M12 6v7"/>
+        <path d="M8 9h8"/>
+      </svg>
+      <h2>Chưa có nội dung</h2>
+      <p>Mô tả khóa học, quiz, bài giảng hoặc bài tập bạn muốn tạo ở thanh chat bên trái. AI sẽ giúp bạn xây dựng cấu trúc hoàn chỉnh.</p>
+    </div>
+  </main>
+
+  <app-ai-module-config-modal
+    [show]="showModuleConfig"
+    [moduleConfigContext]="moduleConfigContext"
+    (close)="onCloseModuleConfig()"
+    (save)="onSaveModuleConfig($event)">
+  </app-ai-module-config-modal>
+
+  <app-ai-create-course-modal
+    *ngIf="showCreateCourseModal && coursePreview"
+    [courseName]="coursePreview.name"
+    [courseDescription]="coursePreview.description"
+    [sectionsCount]="coursePreview.sections.length"
+    [modulesCount]="countTotalModules()"
+    (close)="onCloseCreateCourseModal()"
+    (create)="onCreateCourseFromModal($event)">
+  </app-ai-create-course-modal>
 </div>

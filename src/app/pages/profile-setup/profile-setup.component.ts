@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { UserService, UpdateProfileRequest } from '../../services/user.service';
 import { AuthService } from '../../services/auth.service';
+import { NavigationService } from '../../services/navigation.service';
 import { ActivityService } from '../../services/activity.service';
 import { AvatarComponent, ButtonComponent } from '../../components/ui';
 
@@ -26,6 +27,7 @@ export class ProfileSetupComponent implements OnInit {
     private userService: UserService,
     private authService: AuthService,
     private router: Router,
+    private navigationService: NavigationService,
     private activityService: ActivityService
   ) {
     this.profileForm = this.fb.group({
@@ -75,7 +77,7 @@ export class ProfileSetupComponent implements OnInit {
         next: (response) => {
           if (response.success) {
             this.activityService.track('PROFILE_UPDATE', { action: 'profile-setup-complete' });
-            this.router.navigate(['/dashboard']);
+            this.navigationService.navigateByCurrentUserRole();
           }
         },
         error: (error) => {
@@ -89,7 +91,7 @@ export class ProfileSetupComponent implements OnInit {
 
   skipSetup(): void {
     this.activityService.track('BUTTON_CLICK', { action: 'skip-profile-setup' });
-    this.router.navigate(['/dashboard']);
+    this.navigationService.navigateByCurrentUserRole();
   }
 
   logout(): void {

@@ -1,0 +1,267 @@
+// =============================================
+// Teacher Section Detail - Container Styles
+// Only layout and container-level styles here
+// Sub-component styles are in their own files
+// =============================================
+
+// Layout Variables
+$sidebar-width: 320px;
+$sidebar-collapsed-width: 0;
+$content-max-width: 1200px;
+$header-height: 64px;
+
+// =============================================
+// Main Layout
+// =============================================
+.detail-page {
+  display: flex;
+  min-height: calc(100vh - #{$header-height});
+  background: var(--gray-50);
+  position: relative;
+
+  &.sidebar-open {
+    .main-content {
+      margin-left: $sidebar-width;
+      
+      @media (max-width: 1024px) {
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+// =============================================
+// Sidebar Toggle Button
+// =============================================
+.sidebar-toggle {
+  position: fixed;
+  left: 1rem;
+  top: calc(#{$header-height} + 1rem);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--gray-50);
+    border-color: var(--primary-500);
+    color: var(--primary-600);
+  }
+
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-20px);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    span {
+      display: none;
+    }
+  }
+}
+
+// =============================================
+// Sidebar Overlay (Mobile)
+// =============================================
+.sidebar-overlay {
+  display: none;
+  
+  @media (max-width: 1024px) {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+
+    &.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+}
+
+// =============================================
+// Main Content Area
+// =============================================
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem;
+  margin-left: 0;
+  transition: margin-left 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+}
+
+// =============================================
+// Page Header
+// =============================================
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+// =============================================
+// Loading States
+// =============================================
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--gray-500);
+  text-align: center;
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--gray-200);
+    border-top-color: var(--primary-500);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  p {
+    font-size: 0.875rem;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// =============================================
+// Section Detail Container
+// =============================================
+.section-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: $content-max-width;
+  margin: 0 auto;
+}
+
+// =============================================
+// Card Wrappers
+// =============================================
+.header-card {
+  ::ng-deep .card-body {
+    padding: 0;
+  }
+}
+
+.modules-card {
+  ::ng-deep .card-body {
+    padding: 0;
+  }
+}
+
+// =============================================
+// Not Found State
+// =============================================
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--gray-500);
+
+  svg {
+    color: var(--gray-300);
+    margin-bottom: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin: 0 0 0.5rem 0;
+  }
+
+  p {
+    font-size: 0.875rem;
+    margin: 0 0 1.5rem 0;
+  }
+}
+
+// =============================================
+// Common Button Styles
+// =============================================
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--primary {
+    background: var(--primary-500);
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: var(--primary-600);
+    }
+  }
+
+  &--outline {
+    background: transparent;
+    border-color: var(--gray-200);
+    color: var(--gray-700);
+
+    &:hover:not(:disabled) {
+      border-color: var(--primary-500);
+      color: var(--primary-500);
+    }
+  }
+}
+
+// =============================================
+// Responsive Adjustments
+// =============================================
+@media (max-width: 768px) {
+  .detail-page {
+    flex-direction: column;
+  }
+
+  .section-detail {
+    gap: 1rem;
+  }
+}

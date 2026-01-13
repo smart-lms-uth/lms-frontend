@@ -92,12 +92,12 @@
               <p class="module-description">{{ module()!.description || 'Không có mô tả' }}</p>
               
               <div class="module-meta">
-                <span class="meta-item" *ngIf="module()!.duration">
+                <span class="meta-item" *ngIf="module()!.estimatedDuration">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
-                  {{ module()!.duration }} phút
+                  {{ module()!.estimatedDuration }} phút
                 </span>
                 <span class="meta-item" *ngIf="isGradableModule()">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -132,7 +132,7 @@
               
               <div class="form-group" *ngIf="module()!.type === 'VIDEO' || module()!.type === 'RESOURCE'">
                 <label class="form-label">URL nội dung</label>
-                <input type="text" class="form-input" [(ngModel)]="editContentUrl" placeholder="https://...">
+                <input type="text" class="form-input" [(ngModel)]="editResourceUrl" placeholder="https://...">
               </div>
               
               <!-- Extended settings for gradable modules -->
@@ -190,7 +190,7 @@
       </app-card>
 
       <!-- Content Preview (for VIDEO/RESOURCE) -->
-      <app-card *ngIf="!isGradableModule() && module()!.contentUrl" variant="default" class="content-preview-card">
+      <app-card *ngIf="!isGradableModule() && module()!.resourceUrl" variant="default" class="content-preview-card">
         <h3 class="card-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -204,11 +204,11 @@
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
-              <p>Video: {{ module()!.contentUrl }}</p>
+              <p>Video: {{ module()!.resourceUrl }}</p>
             </div>
           </div>
           <div *ngIf="module()!.type === 'RESOURCE'" class="resource-link">
-            <a [href]="module()!.contentUrl" target="_blank" class="btn btn--primary">
+            <a [href]="module()!.resourceUrl" target="_blank" class="btn btn--primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
@@ -217,6 +217,73 @@
               Mở tài liệu
             </a>
           </div>
+        </div>
+      </app-card>
+
+      <!-- Instructions Section for VIDEO/RESOURCE (content modules) -->
+      <app-card *ngIf="module()!.type === 'VIDEO' || module()!.type === 'RESOURCE'" variant="default" class="instructions-card">
+        <div class="instructions-section">
+          <div class="config-section-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              Hướng dẫn chi tiết
+            </h3>
+            <div class="preview-toggle" *ngIf="editModeService.editMode()">
+              <button class="toggle-btn" [class.active]="!instructionsPreviewMode()" (click)="instructionsPreviewMode.set(false)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                Code
+              </button>
+              <button class="toggle-btn" [class.active]="instructionsPreviewMode()" (click)="instructionsPreviewMode.set(true)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Preview
+              </button>
+            </div>
+          </div>
+          
+          <!-- Edit Mode -->
+          <ng-container *ngIf="editModeService.editMode()">
+            <div *ngIf="!instructionsPreviewMode()" class="instructions-editor">
+              <textarea class="form-textarea markdown-input" 
+                        [(ngModel)]="editInstructions" 
+                        placeholder="Nhập hướng dẫn chi tiết bằng Markdown...&#10;&#10;Ví dụ:&#10;## Nội dung&#10;- Điểm chính 1&#10;- Điểm chính 2&#10;&#10;### Lưu ý&#10;Các thông tin quan trọng..."
+                        rows="8"></textarea>
+            </div>
+            <div *ngIf="instructionsPreviewMode()" class="instructions-preview markdown-body" [innerHTML]="editInstructions | markdown"></div>
+            
+            <div class="form-actions">
+              <button class="btn btn--primary" (click)="saveModuleSettings()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                Lưu hướng dẫn
+              </button>
+            </div>
+          </ng-container>
+          
+          <!-- View Mode -->
+          <ng-container *ngIf="!editModeService.editMode()">
+            <div *ngIf="getInstructions()" class="instructions-preview markdown-body" [innerHTML]="getInstructions() | markdown"></div>
+            <div *ngIf="!getInstructions()" class="instructions-empty">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span>Chưa có hướng dẫn chi tiết</span>
+            </div>
+          </ng-container>
         </div>
       </app-card>
 
@@ -276,6 +343,62 @@
                 <input type="number" class="form-input" [(ngModel)]="editMaxAttempts" min="1" max="10">
               </div>
             </div>
+          </div>
+
+          <!-- Instructions Section -->
+          <div class="config-section instructions-section">
+            <div class="config-section-header">
+              <h4 class="config-section-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Hướng dẫn bài tập (Markdown)
+              </h4>
+              <div class="preview-toggle" *ngIf="editModeService.editMode()">
+                <button class="toggle-btn" [class.active]="!instructionsPreviewMode()" (click)="instructionsPreviewMode.set(false)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"></polyline>
+                    <polyline points="8 6 2 12 8 18"></polyline>
+                  </svg>
+                  Code
+                </button>
+                <button class="toggle-btn" [class.active]="instructionsPreviewMode()" (click)="instructionsPreviewMode.set(true)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  Preview
+                </button>
+              </div>
+            </div>
+            
+            <!-- Edit Mode -->
+            <ng-container *ngIf="editModeService.editMode()">
+              <!-- Code Editor -->
+              <div *ngIf="!instructionsPreviewMode()" class="instructions-editor">
+                <textarea class="form-textarea markdown-input" 
+                          [(ngModel)]="editInstructions" 
+                          placeholder="Nhập hướng dẫn bài tập bằng Markdown...&#10;&#10;Ví dụ:&#10;## Yêu cầu&#10;1. Hoàn thành các bài tập&#10;2. Nộp file `.java`&#10;&#10;### Lưu ý&#10;- Đảm bảo code chạy được&#10;- Comment rõ ràng"
+                          rows="10"></textarea>
+              </div>
+              <!-- Preview -->
+              <div *ngIf="instructionsPreviewMode()" class="instructions-preview markdown-body" [innerHTML]="editInstructions | markdown"></div>
+            </ng-container>
+            
+            <!-- View Mode - Always show preview -->
+            <ng-container *ngIf="!editModeService.editMode()">
+              <div *ngIf="getInstructions()" class="instructions-preview markdown-body" [innerHTML]="getInstructions() | markdown"></div>
+              <div *ngIf="!getInstructions()" class="instructions-empty">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>Chưa có hướng dẫn bài tập</span>
+              </div>
+            </ng-container>
           </div>
 
           <div class="form-actions">
@@ -502,6 +625,44 @@
                 <label class="form-label">Số lần chuyển tab tối đa</label>
                 <input type="number" class="form-input form-input--small" [(ngModel)]="editQuizSettings.maxTabSwitchCount" min="1" max="10">
               </div>
+            </div>
+
+            <!-- Instructions Section for QUIZ (Edit Mode) -->
+            <div class="config-section instructions-section">
+              <div class="config-section-header">
+                <h4 class="config-section-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                  Hướng dẫn làm bài (Markdown)
+                </h4>
+                <div class="preview-toggle">
+                  <button class="toggle-btn" [class.active]="!instructionsPreviewMode()" (click)="instructionsPreviewMode.set(false)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="16 18 22 12 16 6"></polyline>
+                      <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                    Code
+                  </button>
+                  <button class="toggle-btn" [class.active]="instructionsPreviewMode()" (click)="instructionsPreviewMode.set(true)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    Preview
+                  </button>
+                </div>
+              </div>
+              <div *ngIf="!instructionsPreviewMode()" class="instructions-editor">
+                <textarea class="form-textarea markdown-input" 
+                          [(ngModel)]="editInstructions" 
+                          placeholder="Nhập hướng dẫn làm bài bằng Markdown...&#10;&#10;Ví dụ:&#10;## Hướng dẫn&#10;- Đọc kỹ câu hỏi&#10;- Mỗi câu chỉ có 1 đáp án đúng&#10;&#10;### Lưu ý&#10;- Không được chuyển tab"
+                          rows="6"></textarea>
+              </div>
+              <div *ngIf="instructionsPreviewMode()" class="instructions-preview markdown-body" [innerHTML]="editInstructions | markdown"></div>
             </div>
 
             <!-- Save Button -->
@@ -732,6 +893,20 @@
               </div>
             </div>
           </div>
+          
+          <!-- Instructions Section (View Mode) -->
+          <div class="config-section instructions-section" *ngIf="getInstructions()">
+            <h4 class="config-section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              Hướng dẫn làm bài
+            </h4>
+            <div class="instructions-preview markdown-body" [innerHTML]="getInstructions() | markdown"></div>
+          </div>
           </ng-container>
 
           <!-- Action Buttons (only in read-only mode) -->
@@ -865,13 +1040,22 @@
                 <!-- File nộp (chỉ cho ASSIGNMENT) -->
                 <td class="col-file" *ngIf="module()?.type === 'ASSIGNMENT'">
                   <div *ngIf="submission.fileUrl" class="file-info">
-                    <a [href]="submission.fileUrl" target="_blank" class="file-link" [title]="submission.fileName">
+                    <a (click)="viewSubmissionFile(submission)" class="file-link" [title]="submission.fileName" style="cursor: pointer;">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
                       </svg>
-                      <span class="file-name">{{ submission.fileName || 'Tải xuống' }}</span>
+                      <span class="file-name">{{ submission.fileName || 'Xem file' }}</span>
                     </a>
+                    <button class="btn-download" 
+                            (click)="downloadSubmissionFile(submission)" 
+                            title="Tải xuống file">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                    </button>
                     <span *ngIf="submission.attemptNumber && submission.attemptNumber > 1" class="attempt-badge" title="Lần nộp thứ {{ submission.attemptNumber }}">
                       #{{ submission.attemptNumber }}
                     </span>

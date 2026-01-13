@@ -7,6 +7,8 @@ import { AuthService } from '../../services/auth.service';
 import { CourseService, Course, Section, Module, QuizSettings, GradingMethod, QuestionSelectionMode, ExamDistributionMode, RandomQuestionConfig } from '../../services/course.service';
 import { QuestionBankService, Chapter, Question } from '../../services/question-bank.service';
 import { QuizService, QuizQuestion, AnswerRequest, RandomQuestionsRequest, AddQuestionsRequest } from '../../services/quiz.service';
+import { AiService, GeneratedQuizQuestion } from '../../services/ai.service';
+import { ActivityService } from '../../services/activity.service';
 import { EditModeService } from '../../services/edit-mode.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
@@ -49,7 +51,7 @@ export class TeacherSectionDetailComponent implements OnInit {
   newModuleTitle: string = '';
   newModuleDescription: string = '';
   newModuleType: 'VIDEO' | 'RESOURCE' | 'QUIZ' | 'ASSIGNMENT' | 'LIVESTREAM' | 'FORUM' = 'VIDEO';
-  newModuleContentUrl: string = '';
+  newModuleResourceUrl: string = '';
   newModuleVisible: boolean = true;
   // Grade fields
   newModuleMaxScore: number | null = null;
@@ -59,7 +61,7 @@ export class TeacherSectionDetailComponent implements OnInit {
 
   // ========== QUIZ SETTINGS ==========
   quizSettings: QuizSettings = this.getDefaultQuizSettings();
-  
+
   // UI state for quiz settings tabs
   activeQuizTab: 'time' | 'attempt' | 'questions' | 'display' | 'review' | 'security' = 'time';
 
@@ -82,24 +84,36 @@ export class TeacherSectionDetailComponent implements OnInit {
   previewCurrentQuestion = signal(0);
   previewShowResult = signal(false);
 
+  // ========== AI QUIZ GENERATION STATE ==========
+  showAiQuizModal = signal(false);
+  aiQuizLoading = signal(false);
+  aiQuizTopic: string = '';
+  aiQuizNumQuestions: number = 10;
+  aiQuizDifficulty: 'EASY' | 'MEDIUM' | 'HARD' = 'MEDIUM';
+  aiGeneratedQuestions = signal<GeneratedQuizQuestion[]>([]);
+  aiSelectedQuestions: Set<number> = new Set();
+  aiSavingToBank = signal(false);
+
   editModeService = inject(EditModeService);
   private questionBankService = inject(QuestionBankService);
   private quizService = inject(QuizService);
+  private aiService = inject(AiService);
   private sanitizer = inject(DomSanitizer);
 
   constructor(
     private authService: AuthService,
     private courseService: CourseService,
+    private activityService: ActivityService,
     private router: Router,
     private route: ActivatedRoute
-  ) {}
+  ) { }
 
   ngOnInit() {
     // Subscribe to route params to detect changes when navigating between sections
     this.route.paramMap.subscribe(params => {
       const courseId = params.get('courseId');
       const sectionId = params.get('sectionId');
-      
+
       if (courseId && sectionId) {
         this.courseId.set(parseInt(courseId));
         this.sectionId.set(parseInt(sectionId));
@@ -113,7 +127,7 @@ export class TeacherSectionDetailComponent implements OnInit {
   async loadData() {
     this.loading.set(true);
     this.sectionsLoading.set(true);
-    
+
     try {
       // Load course info
       const course = await this.courseService.getCourseById(this.courseId()!).toPromise();
@@ -131,26 +145,32 @@ export class TeacherSectionDetailComponent implements OnInit {
             sec.modules = [];
           }
         }
-        
+
         this.sections.set(allSections);
         this.sectionsLoading.set(false);
-        
+
         const index = allSections.findIndex(s => s.id === this.sectionId());
         if (index !== -1) {
           const currentSection = allSections[index];
           this.sectionIndex.set(index + 1);
-          
+
           // Expand current section in sidebar
           this.expandedSections.set([currentSection.id]);
-          
+
           // Store original module order for current section
           this.originalModuleOrder.set((currentSection.modules || []).map((m: any) => m.id));
-          
+
           this.section.set(currentSection);
+
+          // Track section view activity
+          this.activityService.trackSectionView(
+            this.sectionId()!.toString(),
+            currentSection.title || 'Chương',
+            this.courseId()!.toString()
+          );
         }
       }
-    } catch (error) {
-      console.error('Error loading data:', error);
+    } catch {
       this.section.set(null);
     } finally {
       this.loading.set(false);
@@ -187,7 +207,7 @@ export class TeacherSectionDetailComponent implements OnInit {
   }
 
   // ========== QUIZ PREVIEW METHODS ==========
-  
+
   async openQuizPreview(module: Module) {
     this.previewModule.set(module);
     this.showQuizPreview.set(true);
@@ -199,8 +219,7 @@ export class TeacherSectionDetailComponent implements OnInit {
     try {
       const questions = await this.quizService.getQuizQuestions(module.id).toPromise();
       this.previewQuestions.set(questions || []);
-    } catch (error) {
-      console.error('Error loading quiz questions:', error);
+    } catch {
       this.previewQuestions.set([]);
     } finally {
       this.previewLoading.set(false);
@@ -217,9 +236,9 @@ export class TeacherSectionDetailComponent implements OnInit {
 
   selectPreviewAnswer(questionId: number, optionId: number, isMulti: boolean = false) {
     if (this.previewShowResult()) return;
-    
+
     const existing = this.previewAnswers.get(questionId);
-    
+
     if (isMulti) {
       // Multi-choice: toggle selection
       const currentIds = existing?.selectedOptionIds || [];
@@ -273,11 +292,11 @@ export class TeacherSectionDetailComponent implements OnInit {
     let correct = 0;
     let score = 0;
     let maxScore = 0;
-    
+
     this.previewQuestions().forEach(qq => {
       const answer = this.previewAnswers.get(qq.question.id);
       maxScore += qq.point;
-      
+
       if (qq.question.type === 'SINGLE') {
         const correctOption = qq.question.options.find(o => o.isCorrect);
         if (correctOption && answer?.selectedOptionId === correctOption.id) {
@@ -287,8 +306,8 @@ export class TeacherSectionDetailComponent implements OnInit {
       } else if (qq.question.type === 'MULTI') {
         const correctIds = qq.question.options.filter(o => o.isCorrect).map(o => o.id);
         const selectedIds = answer?.selectedOptionIds || [];
-        if (correctIds.length === selectedIds.length && 
-            correctIds.every(id => selectedIds.includes(id))) {
+        if (correctIds.length === selectedIds.length &&
+          correctIds.every(id => selectedIds.includes(id))) {
           correct++;
           score += qq.point;
         }
@@ -329,18 +348,15 @@ export class TeacherSectionDetailComponent implements OnInit {
   }
 
   editSection() {
-    // TODO: Implement edit section modal
-    console.log('Edit section');
   }
 
   async toggleVisibility() {
     if (!this.section()) return;
-    
+
     try {
       await this.courseService.toggleSectionVisibility(this.sectionId()!).toPromise();
       await this.loadData();
-    } catch (error) {
-      console.error('Error toggling visibility:', error);
+    } catch {
     }
   }
 
@@ -357,7 +373,7 @@ export class TeacherSectionDetailComponent implements OnInit {
     this.newModuleTitle = module.title;
     this.newModuleDescription = module.description || '';
     this.newModuleType = module.type;
-    this.newModuleContentUrl = module.contentUrl || '';
+    this.newModuleResourceUrl = module.resourceUrl || '';
     this.newModuleVisible = module.visible;
     // Grade fields
     this.newModuleMaxScore = module.maxScore ?? null;
@@ -383,7 +399,7 @@ export class TeacherSectionDetailComponent implements OnInit {
     this.newModuleTitle = '';
     this.newModuleDescription = '';
     this.newModuleType = 'VIDEO';
-    this.newModuleContentUrl = '';
+    this.newModuleResourceUrl = '';
     this.newModuleVisible = true;
     // Grade fields
     this.newModuleMaxScore = null;
@@ -456,27 +472,26 @@ export class TeacherSectionDetailComponent implements OnInit {
   }
 
   // ========== QUESTION SELECTION METHODS ==========
-  
+
   async loadChaptersAndQuestions() {
     const subjectId = this.course()?.subjectId;
     if (!subjectId) return;
-    
+
     this.chaptersLoading.set(true);
     this.questionsLoading.set(true);
-    
+
     try {
       // Load chapters
       const chapters = await this.questionBankService.getChaptersBySubject(subjectId).toPromise();
       this.availableChapters.set(chapters || []);
-      
+
       // Load all questions for the subject
       const questions = await this.questionBankService.getQuestions(subjectId).toPromise();
       this.availableQuestions.set(questions || []);
-      
+
       // Group questions by chapter
       this.groupQuestionsByChapter(questions || []);
-    } catch (error) {
-      console.error('Error loading chapters/questions:', error);
+    } catch {
     } finally {
       this.chaptersLoading.set(false);
       this.questionsLoading.set(false);
@@ -575,21 +590,150 @@ export class TeacherSectionDetailComponent implements OnInit {
     }
   }
 
-  /**
-   * Add questions to quiz based on selection mode
-   */
+  // ========== AI QUIZ GENERATION METHODS ==========
+
+  openAiQuizModal() {
+    this.showAiQuizModal.set(true);
+    this.aiQuizTopic = '';
+    this.aiQuizNumQuestions = 10;
+    this.aiQuizDifficulty = 'MEDIUM';
+    this.aiGeneratedQuestions.set([]);
+    this.aiSelectedQuestions.clear();
+  }
+
+  closeAiQuizModal() {
+    this.showAiQuizModal.set(false);
+    this.aiGeneratedQuestions.set([]);
+    this.aiSelectedQuestions.clear();
+  }
+
+  async generateQuestionsWithAi() {
+    if (!this.aiQuizTopic.trim()) {
+      alert('Vui lòng nhập chủ đề câu hỏi!');
+      return;
+    }
+
+    this.aiQuizLoading.set(true);
+    this.aiGeneratedQuestions.set([]);
+    this.aiSelectedQuestions.clear();
+
+    try {
+      const response = await this.aiService.generateQuizQuestions({
+        topic: this.aiQuizTopic.trim(),
+        subjectName: this.course()?.subjectName || 'Môn học',
+        numQuestions: this.aiQuizNumQuestions,
+        difficulty: this.aiQuizDifficulty
+      }).toPromise();
+
+      if (response?.success && response.data?.questions) {
+        this.aiGeneratedQuestions.set(response.data.questions);
+        // Select all questions by default
+        response.data.questions.forEach((_, index) => {
+          this.aiSelectedQuestions.add(index);
+        });
+      } else {
+        alert('Không thể tạo câu hỏi. Vui lòng thử lại!');
+      }
+    } catch (error) {
+      console.error('Error generating AI questions:', error);
+      alert('Có lỗi xảy ra khi tạo câu hỏi với AI!');
+    } finally {
+      this.aiQuizLoading.set(false);
+    }
+  }
+
+  toggleAiQuestionSelection(index: number) {
+    if (this.aiSelectedQuestions.has(index)) {
+      this.aiSelectedQuestions.delete(index);
+    } else {
+      this.aiSelectedQuestions.add(index);
+    }
+  }
+
+  isAiQuestionSelected(index: number): boolean {
+    return this.aiSelectedQuestions.has(index);
+  }
+
+  selectAllAiQuestions() {
+    this.aiGeneratedQuestions().forEach((_, index) => {
+      this.aiSelectedQuestions.add(index);
+    });
+  }
+
+  deselectAllAiQuestions() {
+    this.aiSelectedQuestions.clear();
+  }
+
+  async saveAiQuestionsToBank() {
+    if (this.aiSelectedQuestions.size === 0) {
+      alert('Vui lòng chọn ít nhất một câu hỏi!');
+      return;
+    }
+
+    const subjectId = this.course()?.subjectId;
+    if (!subjectId) {
+      alert('Không tìm thấy thông tin môn học!');
+      return;
+    }
+
+    this.aiSavingToBank.set(true);
+
+    try {
+      const selectedQuestions = this.aiGeneratedQuestions()
+        .filter((_, index) => this.aiSelectedQuestions.has(index));
+
+      let savedCount = 0;
+      for (const q of selectedQuestions) {
+        try {
+          const questionData = {
+            content: q.content,
+            type: q.type,
+            level: q.level,
+            options: q.options.map((opt, idx) => ({
+              content: opt.content,
+              isCorrect: opt.isCorrect,
+              orderIndex: idx + 1
+            }))
+          };
+
+          await this.questionBankService.createQuestion(subjectId, questionData).toPromise();
+          savedCount++;
+        } catch (e) {
+          console.error('Error saving question:', e);
+        }
+      }
+
+      alert(`Đã lưu ${savedCount}/${selectedQuestions.length} câu hỏi vào ngân hàng đề!`);
+
+      // Reload questions list
+      await this.loadChaptersAndQuestions();
+
+      this.closeAiQuizModal();
+    } catch (error) {
+      console.error('Error saving questions:', error);
+      alert('Có lỗi xảy ra khi lưu câu hỏi!');
+    } finally {
+      this.aiSavingToBank.set(false);
+    }
+  }
+
+  async addAiQuestionsDirectlyToQuiz() {
+    if (this.aiSelectedQuestions.size === 0) {
+      alert('Vui lòng chọn ít nhất một câu hỏi!');
+      return;
+    }
+
+    // First save to bank, then will be available for selection
+    await this.saveAiQuestionsToBank();
+  }
+
   async addQuizQuestions(moduleId: number) {
     try {
       const mode = this.quizSettings.questionSelectionMode;
-      console.log('[DEBUG] addQuizQuestions - mode:', mode);
-      console.log('[DEBUG] addQuizQuestions - moduleId:', moduleId);
-      console.log('[DEBUG] addQuizQuestions - quizSettings:', JSON.stringify(this.quizSettings, null, 2));
-      
+
       if (mode === 'RANDOM' || mode === 'MIXED') {
-        // Add random questions
         const config = this.quizSettings.randomConfig;
-        console.log('[DEBUG] RANDOM/MIXED mode - randomConfig:', JSON.stringify(config, null, 2));
-        
+
         if (config && (config.easyCount || config.mediumCount || config.hardCount)) {
           const request = {
             fromChapterIds: config.fromChapterIds,
@@ -598,36 +742,23 @@ export class TeacherSectionDetailComponent implements OnInit {
             hardCount: config.hardCount || 0,
             pointPerQuestion: 1.0
           };
-          console.log('[DEBUG] Calling addRandomQuestionsToQuiz with:', JSON.stringify(request, null, 2));
-          
-          const result = await this.quizService.addRandomQuestionsToQuiz(moduleId, request).toPromise();
-          console.log('[DEBUG] addRandomQuestionsToQuiz result:', result);
-        } else {
-          console.log('[DEBUG] Skipping random - no counts configured');
+
+          await this.quizService.addRandomQuestionsToQuiz(moduleId, request).toPromise();
         }
       }
-      
+
       if (mode === 'MANUAL' || mode === 'MIXED') {
-        // Add selected questions
-        console.log('[DEBUG] MANUAL/MIXED mode - selectedQuestionIds:', this.selectedQuestionIds);
-        
         if (this.selectedQuestionIds.length > 0) {
           const questions = this.selectedQuestionIds.map((qId, index) => ({
             questionId: qId,
             point: 1.0,
             orderIndex: index + 1
           }));
-          console.log('[DEBUG] Calling addQuestionsToQuiz with:', JSON.stringify({ questions }, null, 2));
-          
-          const result = await this.quizService.addQuestionsToQuiz(moduleId, { questions }).toPromise();
-          console.log('[DEBUG] addQuestionsToQuiz result:', result);
-        } else {
-          console.log('[DEBUG] Skipping manual - no questions selected');
+
+          await this.quizService.addQuestionsToQuiz(moduleId, { questions }).toPromise();
         }
       }
-    } catch (error) {
-      console.error('[ERROR] addQuizQuestions failed:', error);
-      // Don't throw - module already created, questions can be added later
+    } catch {
     }
   }
 
@@ -639,7 +770,7 @@ export class TeacherSectionDetailComponent implements OnInit {
         title: this.newModuleTitle.trim(),
         description: this.newModuleDescription.trim(),
         type: this.newModuleType,
-        contentUrl: this.newModuleContentUrl.trim() || undefined,
+        resourceUrl: this.newModuleResourceUrl.trim() || undefined,
         visible: this.newModuleVisible
       };
 
@@ -663,32 +794,20 @@ export class TeacherSectionDetailComponent implements OnInit {
       }
 
       let savedModule: Module | undefined;
-      
+
       if (this.editingModule()) {
-        // Update existing module
-        console.log('[DEBUG] Updating module:', this.editingModule()!.id);
         savedModule = await this.courseService.updateModule(this.editingModule()!.id, moduleData).toPromise();
-        console.log('[DEBUG] Updated module result:', savedModule);
       } else {
-        // Create new module
-        console.log('[DEBUG] Creating new module for section:', this.sectionId());
-        console.log('[DEBUG] Module data:', JSON.stringify(moduleData, null, 2));
         savedModule = await this.courseService.createModule(this.sectionId()!, moduleData).toPromise();
-        console.log('[DEBUG] Created module result:', savedModule);
       }
 
-      // After creating/updating QUIZ module, add questions based on selection mode
       if (savedModule && this.isQuizType()) {
-        console.log('[DEBUG] Will add quiz questions for module ID:', savedModule.id);
         await this.addQuizQuestions(savedModule.id);
-      } else {
-        console.log('[DEBUG] NOT adding quiz questions - savedModule:', !!savedModule, 'isQuizType:', this.isQuizType());
       }
 
       this.closeModuleModal();
       await this.loadData();
-    } catch (error) {
-      console.error('Error saving module:', error);
+    } catch {
       alert('Có lỗi xảy ra khi lưu module!');
     }
   }
@@ -698,8 +817,7 @@ export class TeacherSectionDetailComponent implements OnInit {
       try {
         await this.courseService.deleteModule(module.id).toPromise();
         await this.loadData();
-      } catch (error) {
-        console.error('Error deleting module:', error);
+      } catch {
         alert('Có lỗi xảy ra khi xóa module!');
       }
     }
@@ -709,15 +827,14 @@ export class TeacherSectionDetailComponent implements OnInit {
     try {
       await this.courseService.toggleModuleVisibility(module.id).toPromise();
       await this.loadData();
-    } catch (error) {
-      console.error('Error toggling module visibility:', error);
+    } catch {
     }
   }
 
   dropModule(event: CdkDragDrop<any[]>) {
     const currentSection = this.section();
     if (!currentSection || !currentSection.modules) return;
-    
+
     const modules = [...currentSection.modules];
     moveItemInArray(modules, event.previousIndex, event.currentIndex);
     this.section.set({ ...currentSection, modules });
@@ -726,7 +843,7 @@ export class TeacherSectionDetailComponent implements OnInit {
   hasModuleOrderChanged(): boolean {
     const currentSection = this.section();
     if (!currentSection || !currentSection.modules) return false;
-    
+
     const currentOrder = currentSection.modules.map((m: any) => m.id);
     const originalOrder = this.originalModuleOrder();
     if (currentOrder.length !== originalOrder.length) return true;
@@ -737,17 +854,15 @@ export class TeacherSectionDetailComponent implements OnInit {
     try {
       const currentSection = this.section();
       if (!currentSection || !currentSection.modules) return;
-      
+
       const moduleIds = currentSection.modules.map((m: any) => m.id);
       await this.courseService.reorderModules(this.sectionId()!, moduleIds).toPromise();
-      
+
       // Update original order after successful save
       this.originalModuleOrder.set(moduleIds);
-      
-      // Show success message
+
       alert('Đã lưu thứ tự thành công!');
-    } catch (error) {
-      console.error('Error saving order:', error);
+    } catch {
       alert('Có lỗi xảy ra khi lưu thứ tự!');
     }
   }
@@ -756,15 +871,15 @@ export class TeacherSectionDetailComponent implements OnInit {
     const items: BreadcrumbItem[] = [
       { label: 'Dashboard', link: '/teacher/dashboard' }
     ];
-    
+
     if (this.course()) {
       items.push({ label: this.course()!.subjectName, link: `/teacher/courses/${this.courseId()}` });
     }
-    
+
     if (this.section()) {
       items.push({ label: this.section()!.title });
     }
-    
+
     return items;
   }
 

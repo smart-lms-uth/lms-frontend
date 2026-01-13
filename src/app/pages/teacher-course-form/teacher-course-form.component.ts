@@ -137,7 +137,7 @@ export class TeacherCourseFormComponent implements OnInit {
         await this.courseService.createCourse(request).toPromise();
       }
 
-      this.router.navigate(['/teacher/courses']);
+      this.router.navigate(['/teacher/dashboard']);
     } catch (error: any) {
       console.error('Error saving course:', error);
       this.errorMessage.set(error?.error?.message || 'Không thể lưu lớp học phần. Vui lòng thử lại.');

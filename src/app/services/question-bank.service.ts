@@ -30,6 +30,10 @@ export interface Question {
   imageUrl?: string;
   isActive?: boolean;
   createdBy?: number;
+  isAiGenerated?: boolean;
+  aiPrompt?: string;
+  aiModel?: string;
+  aiGeneratedAt?: string;
   options: QuestionOption[];
   createdAt?: string;
   updatedAt?: string;
@@ -43,6 +47,9 @@ export interface QuestionRequest {
   explanation?: string;
   imageUrl?: string;
   options: Omit<QuestionOption, 'id' | 'label'>[];
+  isAiGenerated?: boolean;
+  aiPrompt?: string;
+  aiModel?: string;
 }
 
 export interface QuestionBankStats {
@@ -103,7 +110,8 @@ interface ApiResponse<T> {
   data: T;
 }
 
-const COURSE_API = environment.apiUrl.replace('/v1', '');
+// Course base URL - uses courseApiUrl from environment
+const COURSE_API = environment.courseApiUrl;
 
 @Injectable({
   providedIn: 'root'

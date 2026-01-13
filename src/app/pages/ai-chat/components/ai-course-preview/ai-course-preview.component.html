@@ -1,0 +1,232 @@
+<main class="ai-course-preview" *ngIf="coursePreview">
+  <!-- Preview Header -->
+  <div class="ai-course-preview__header">
+    <h1 class="ai-course-preview__title">
+      <input 
+        type="text" 
+        [(ngModel)]="coursePreview.name" 
+        class="ai-course-preview__editable-title"
+        placeholder="Tên khóa học">
+    </h1>
+    <div class="ai-course-preview__actions">
+      <button class="ai-course-preview__btn ai-course-preview__btn--secondary" (click)="onReset()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+          <path d="M21 3v5h-5"/>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+          <path d="M8 16H3v5"/>
+        </svg>
+        Làm lại
+      </button>
+      <button class="ai-course-preview__btn ai-course-preview__btn--primary" (click)="onCreateNew()" [disabled]="isSaving">
+        <svg *ngIf="!isSaving" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        <div *ngIf="isSaving" class="ai-course-preview__spinner"></div>
+        Tạo khóa học mới
+      </button>
+      <button *ngIf="isEditMode" class="ai-course-preview__btn ai-course-preview__btn--success" (click)="onSave()" [disabled]="isSaving">
+        <svg *ngIf="!isSaving" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        <div *ngIf="isSaving" class="ai-course-preview__spinner"></div>
+        {{ isSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Course Info -->
+  <div class="ai-course-preview__info">
+    <div class="ai-course-preview__info-row">
+      <div class="ai-course-preview__info-field">
+        <label>Mô tả</label>
+        <textarea 
+          [(ngModel)]="coursePreview.description" 
+          placeholder="Mô tả khóa học..."
+          rows="2"></textarea>
+      </div>
+    </div>
+    <div class="ai-course-preview__info-row">
+      <div class="ai-course-preview__info-field">
+        <label>Mục tiêu học tập</label>
+        <div class="ai-course-preview__tags-input">
+          <span class="ai-course-preview__tag" *ngFor="let obj of coursePreview.objectives; let i = index">
+            {{ obj }}
+            <button (click)="removeObjective(i)">×</button>
+          </span>
+          <input 
+            type="text" 
+            placeholder="Thêm mục tiêu..." 
+            (keydown.enter)="addObjective($event)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sections -->
+  <div class="ai-course-preview__sections">
+    <div class="ai-course-preview__sections-header">
+      <h2>Cấu trúc khóa học</h2>
+      <button class="ai-course-preview__add-btn" (click)="addSection()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Thêm section
+      </button>
+    </div>
+
+    <!-- Sections Drop List -->
+    <div 
+      class="ai-course-preview__sections-list"
+      cdkDropList
+      [cdkDropListData]="coursePreview.sections"
+      (cdkDropListDropped)="dropSection($event)">
+
+      <div 
+        class="ai-course-preview__section" 
+        *ngFor="let section of coursePreview.sections; let si = index"
+        cdkDrag
+        [cdkDragData]="section">
+        
+        <!-- Drag Preview -->
+        <div class="ai-course-preview__section-drag-preview" *cdkDragPreview>
+          <span class="ai-course-preview__section-number">{{ si + 1 }}</span>
+          {{ section.title || 'Section ' + (si + 1) }}
+        </div>
+
+        <!-- Drag Placeholder -->
+        <div class="ai-course-preview__section-placeholder" *cdkDragPlaceholder></div>
+
+        <div class="ai-course-preview__section-header">
+          <div class="ai-course-preview__section-drag" cdkDragHandle>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+              <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+            </svg>
+          </div>
+          <span class="ai-course-preview__section-number">{{ si + 1 }}</span>
+          <input 
+            type="text" 
+            [(ngModel)]="section.title" 
+            class="ai-course-preview__section-title"
+            placeholder="Tên section">
+          <div class="ai-course-preview__section-actions">
+            <button (click)="toggleSection(si)" class="ai-course-preview__icon-btn">
+              <svg *ngIf="!section.collapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m18 15-6-6-6 6"/>
+              </svg>
+              <svg *ngIf="section.collapsed" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </button>
+            <button (click)="removeSection(si)" class="ai-course-preview__icon-btn ai-course-preview__icon-btn--danger">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section Description -->
+        <div class="ai-course-preview__section-description" *ngIf="!section.collapsed">
+          <textarea 
+            [(ngModel)]="section.description" 
+            placeholder="Mô tả section (tùy chọn)..."
+            rows="1"></textarea>
+        </div>
+
+        <!-- Modules in Section - with Drag & Drop -->
+        <div 
+          class="ai-course-preview__modules" 
+          *ngIf="!section.collapsed"
+          cdkDropList
+          [id]="'module-list-' + si"
+          [cdkDropListData]="section.modules"
+          [cdkDropListConnectedTo]="getConnectedLists()"
+          (cdkDropListDropped)="dropModule($event)">
+
+          <div 
+            class="ai-course-preview__module" 
+            *ngFor="let module of section.modules; let mi = index"
+            cdkDrag
+            [cdkDragData]="module">
+
+            <!-- Module Drag Handle -->
+            <div class="ai-course-preview__module-drag" cdkDragHandle>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+                <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+              </svg>
+            </div>
+
+            <!-- Module Drag Preview -->
+            <div class="ai-course-preview__module-drag-preview" *cdkDragPreview>
+              <span class="ai-course-preview__module-preview-icon" [ngClass]="'ai-course-preview__module-preview-icon--' + module.type">
+                {{ module.type === 'VIDEO' ? '▶' : module.type === 'QUIZ' ? '?' : module.type === 'DOCUMENT' ? '📄' : module.type === 'ASSIGNMENT' ? '📋' : '📝' }}
+              </span>
+              {{ module.title || 'Module' }}
+            </div>
+
+            <!-- Module Placeholder -->
+            <div class="ai-course-preview__module-placeholder" *cdkDragPlaceholder></div>
+
+            <div class="ai-course-preview__module-icon" [ngClass]="'ai-course-preview__module-icon--' + module.type">
+            <svg *ngIf="module.type === 'VIDEO'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <svg *ngIf="module.type === 'DOCUMENT'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <svg *ngIf="module.type === 'QUIZ'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <path d="M12 17h.01"/>
+            </svg>
+            <svg *ngIf="module.type === 'ASSIGNMENT'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+            </svg>
+            <svg *ngIf="module.type === 'TEXT'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 6.1H3"/><path d="M21 12.1H3"/><path d="M15.1 18H3"/>
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            [(ngModel)]="module.title" 
+            class="ai-course-preview__module-title"
+            placeholder="Tên module">
+          <select [(ngModel)]="module.type" class="ai-course-preview__module-type">
+            <option value="VIDEO">Video</option>
+            <option value="DOCUMENT">Tài liệu</option>
+            <option value="TEXT">Văn bản</option>
+            <option value="QUIZ">Quiz</option>
+            <option value="ASSIGNMENT">Bài tập</option>
+          </select>
+          <!-- Configure button -->
+          <button (click)="onOpenModuleConfig(si, mi)" class="ai-course-preview__icon-btn ai-course-preview__icon-btn--config" title="Cấu hình chi tiết">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+          <button (click)="removeModule(si, mi)" class="ai-course-preview__icon-btn ai-course-preview__icon-btn--danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <button class="ai-course-preview__add-module" (click)="addModule(si)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Thêm module
+        </button>
+      </div>
+    </div>
+    </div><!-- End sections drop list -->
+  </div>
+</main>

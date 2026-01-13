@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
+import { AdminGuard } from './guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -14,6 +15,14 @@ export const routes: Routes = [
   {
     path: 'register',
     loadComponent: () => import('./pages/register/register.component').then(m => m.RegisterComponent)
+  },
+  {
+    path: 'forgot-password',
+    loadComponent: () => import('./pages/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent)
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./pages/reset-password/reset-password.component').then(m => m.ResetPasswordComponent)
   },
   {
     path: 'oauth2/callback',
@@ -98,6 +107,38 @@ export const routes: Routes = [
       {
         path: 'courses/:courseId/sections/:sectionId/modules/:moduleId/quiz',
         loadComponent: () => import('./pages/student-quiz/student-quiz.component').then(m => m.StudentQuizComponent)
+      }
+    ]
+  },
+  // Admin routes
+  {
+    path: 'admin',
+    canActivate: [AuthGuard, AdminGuard],
+    children: [
+      {
+        path: '',
+        redirectTo: 'dashboard',
+        pathMatch: 'full'
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./pages/admin/admin-dashboard/admin-dashboard.component').then(m => m.AdminDashboardComponent)
+      },
+      {
+        path: 'semesters',
+        loadComponent: () => import('./pages/admin/admin-semesters/admin-semesters.component').then(m => m.AdminSemestersComponent)
+      },
+      {
+        path: 'subjects',
+        loadComponent: () => import('./pages/admin/admin-subjects/admin-subjects.component').then(m => m.AdminSubjectsComponent)
+      },
+      {
+        path: 'courses',
+        loadComponent: () => import('./pages/admin/admin-courses/admin-courses.component').then(m => m.AdminCoursesComponent)
+      },
+      {
+        path: 'users',
+        loadComponent: () => import('./pages/admin/admin-dashboard/admin-dashboard.component').then(m => m.AdminDashboardComponent)
       }
     ]
   },

@@ -459,8 +459,6 @@ export class ActivityDropdownComponent implements OnInit, OnDestroy {
   }
 
   viewAllActivities(): void {
-    // TODO: Navigate to activities page
-    console.log('View all activities');
     this.isOpen = false;
   }
 }
