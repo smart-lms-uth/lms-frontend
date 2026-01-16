@@ -13,6 +13,7 @@ import { EditModeService } from '../../services/edit-mode.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
 import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-teacher-section-detail',
@@ -32,6 +33,7 @@ import { CdkDragDrop, CdkDrag, CdkDropList, moveItemInArray } from '@angular/cdk
   styleUrls: ['./teacher-section-detail.component.scss']
 })
 export class TeacherSectionDetailComponent implements OnInit {
+  private nav = inject(NavigationService);
   loading = signal(true);
   modulesLoading = signal(false);
   sectionsLoading = signal(false);
@@ -869,7 +871,7 @@ export class TeacherSectionDetailComponent implements OnInit {
 
   getBreadcrumbs(): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
-      { label: 'Dashboard', link: '/teacher/dashboard' }
+      { label: this.nav.getDashboardLabel(), link: this.nav.getDashboardUrl() }
     ];
 
     if (this.course()) {

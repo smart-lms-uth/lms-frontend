@@ -12,6 +12,7 @@ import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
+import { NavigationService } from '../../services/navigation.service';
 
 // Interface cho submission của sinh viên
 export interface StudentSubmission {
@@ -58,6 +59,7 @@ export interface StudentSubmission {
   styleUrls: ['./teacher-module-detail.component.scss']
 })
 export class TeacherModuleDetailComponent implements OnInit {
+  private nav = inject(NavigationService);
   loading = signal(true);
   submissionsLoading = signal(false);
   savingGrade = signal(false);
@@ -218,7 +220,10 @@ export class TeacherModuleDetailComponent implements OnInit {
     this.editTimeLimit = settings.timeLimit || 0;
     this.editShuffleQuestions = settings.shuffleQuestions || false;
     this.editShowCorrectAnswers = settings.showCorrectAnswers || false;
-    this.editInstructions = settings.instructions || '';
+    // RESOURCE uses 'content' field, others use 'instructions'
+    this.editInstructions = (module.type === 'RESOURCE')
+      ? (settings.content || settings.instructions || '')
+      : (settings.instructions || '');
   }
 
   parseModuleSettings(module: Module): any {
@@ -633,7 +638,10 @@ export class TeacherModuleDetailComponent implements OnInit {
     const mod = this.module();
     if (!mod) return '';
     const settings = this.parseModuleSettings(mod);
-    return settings.instructions || '';
+    // RESOURCE uses 'content' field, others use 'instructions'
+    return (mod.type === 'RESOURCE')
+      ? (settings.content || settings.instructions || '')
+      : (settings.instructions || '');
   }
 
   async saveModuleSettings() {
@@ -661,9 +669,9 @@ export class TeacherModuleDetailComponent implements OnInit {
           instructions: this.editInstructions || null
         };
       } else if (this.module()!.type === 'RESOURCE') {
-        // RESOURCE type can also have instructions
+        // RESOURCE type: use 'content' field for markdown content
         settings = {
-          instructions: this.editInstructions || null
+          content: this.editInstructions || null
         };
       }
 
@@ -807,10 +815,8 @@ export class TeacherModuleDetailComponent implements OnInit {
    */
   viewSubmissionFile(submission: StudentSubmission) {
     if (!submission.fileUrl) return;
-    // Sử dụng viewFileBlob để có authentication
-    this.submissionService.viewFileBlob(submission.fileUrl).subscribe({
-      error: (err) => console.error('Error viewing file:', err)
-    });
+    // Files are now public, use direct URL with original filename
+    this.submissionService.viewFile(submission.fileUrl, submission.fileName);
   }
 
   /**
@@ -818,10 +824,8 @@ export class TeacherModuleDetailComponent implements OnInit {
    */
   downloadSubmissionFile(submission: StudentSubmission) {
     if (!submission.fileUrl) return;
-    // Sử dụng downloadSubmissionFileBlob để có authentication
-    this.submissionService.downloadSubmissionFileBlob(submission.fileUrl, submission.fileName).subscribe({
-      error: (err) => console.error('Error downloading file:', err)
-    });
+    // Files are now public, use direct URL with original filename
+    this.submissionService.downloadSubmissionFile(submission.fileUrl, submission.fileName);
   }
 
   onGradeInputKeydown(event: KeyboardEvent, submission: StudentSubmission) {
@@ -962,7 +966,7 @@ export class TeacherModuleDetailComponent implements OnInit {
 
   getBreadcrumbs(): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
-      { label: 'Dashboard', link: '/teacher/dashboard' }
+      { label: this.nav.getDashboardLabel(), link: this.nav.getDashboardUrl() }
     ];
 
     if (this.course()) {

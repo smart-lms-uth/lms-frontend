@@ -7,6 +7,7 @@ import { ProgressService } from '../../services/progress.service';
 import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-student-section-detail',
@@ -23,6 +24,7 @@ import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } fr
   styleUrls: ['./student-section-detail.component.scss']
 })
 export class StudentSectionDetailComponent implements OnInit {
+  nav = inject(NavigationService); // public for template
   loading = signal(true);
   sectionsLoading = signal(false);
   section = signal<Section | null>(null);
@@ -170,7 +172,7 @@ export class StudentSectionDetailComponent implements OnInit {
 
   getBreadcrumbs(): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
-      { label: 'Khóa học', link: '/dashboard' }
+      { label: 'Khóa học', link: this.nav.getDashboardUrl() }
     ];
     
     if (this.course()) {

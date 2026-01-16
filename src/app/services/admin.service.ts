@@ -35,6 +35,169 @@ export interface UserSummary {
   createdAt: string;
 }
 
+// ============ System Monitoring Interfaces ============
+
+export interface HealthComponent {
+  type: string;
+  status: 'UP' | 'DOWN';
+}
+
+export interface SystemHealth {
+  status: 'HEALTHY' | 'WARNING' | 'CRITICAL';
+  components: {
+    database: HealthComponent;
+    cache: HealthComponent;
+    storage: HealthComponent;
+  };
+  timestamp?: string;
+}
+
+export interface SystemMetrics {
+  memory: {
+    heapUsed: string;
+    heapMax: string;
+    heapUsedPercent: number;
+    nonHeapUsed: string;
+  };
+  cpu: {
+    availableProcessors: number;
+    systemLoadAverage: number;
+    arch: string;
+    name: string;
+  };
+  disk: {
+    totalSpace: string;
+    freeSpace: string;
+    usableSpace: string;
+    usedPercent: number;
+  };
+  uptime: string;
+  uptimeMs: number;
+  threadCount: number;
+}
+
+export interface ServiceStatus {
+  name: string;
+  type: string;
+  status: 'UP' | 'DOWN' | 'UNKNOWN';
+  port: string;
+  lastCheck: string;
+}
+
+export interface DatabaseStats {
+  databaseSize: string;
+  connections: {
+    active_connections: number;
+    commits: number;
+    rollbacks: number;
+    blocks_read: number;
+    blocks_hit: number;
+  };
+  topTables: TableInfo[];
+}
+
+export interface TableInfo {
+  table_name: string;
+  total_size: string;
+  data_size: string;
+  row_count: number;
+}
+
+export interface ActivityLog {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number;
+  userId: number;
+  userName: string;
+  timestamp: string;
+  details: string;
+}
+
+// ============ Backup Interfaces ============
+
+export interface BackupInfo {
+  id: string;
+  type: 'FULL' | 'POSTGRES' | 'REDIS' | 'MONGODB';
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'FAILED';
+  size: string;
+  createdAt: string;
+  filePath: string;
+}
+
+export interface BackupSchedule {
+  enabled: boolean;
+  cronExpression: string;
+  nextRun: string;
+  lastRun: string;
+  retentionDays: number;
+  types: string[];
+}
+
+export interface CreateBackupRequest {
+  type: 'all' | 'postgres' | 'redis' | 'mongodb';
+}
+
+export interface UpdateScheduleRequest {
+  enabled?: boolean;
+  cronExpression?: string;
+  retentionDays?: number;
+  types?: string[];
+}
+
+// ============ Stats Interfaces ============
+
+export interface OverviewStats {
+  totalUsers: number;
+  totalCourses: number;
+  totalEnrollments: number;
+  totalQuizSubmissions: number;
+  activeUsersToday: number;
+  newUsersThisWeek: number;
+  coursesCreatedThisMonth: number;
+}
+
+export interface UserStats {
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  usersByRole: { [role: string]: number };
+  newUsersThisWeek: number;
+  newUsersThisMonth: number;
+  userGrowthTrend: TrendData[];
+}
+
+export interface CourseStats {
+  totalCourses: number;
+  activeCourses: number;
+  draftCourses: number;
+  coursesBySubject: { [subject: string]: number };
+  averageEnrollmentsPerCourse: number;
+  topCoursesByEnrollment: CourseEnrollmentInfo[];
+  courseCreationTrend: TrendData[];
+}
+
+export interface EngagementStats {
+  totalEnrollments: number;
+  totalQuizAttempts: number;
+  totalAssignmentSubmissions: number;
+  averageQuizScore: number;
+  completionRate: number;
+  dailyActiveUsers: TrendData[];
+  engagementByDayOfWeek: { [day: string]: number };
+}
+
+export interface TrendData {
+  date: string;
+  value: number;
+}
+
+export interface CourseEnrollmentInfo {
+  courseId: number;
+  courseName: string;
+  enrollmentCount: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -162,5 +325,86 @@ export class AdminService {
   getUsersByRole(role: string): Observable<UserSummary[]> {
     return this.http.get<ApiResponse<UserSummary[]>>(`${environment.apiUrl}/admin/users/role/${role}`)
       .pipe(map(res => res.data || []));
+  }
+
+  // ============ System Monitoring ============
+
+  getSystemHealth(): Observable<SystemHealth> {
+    return this.http.get<ApiResponse<SystemHealth>>(`${API_URL}/admin/system/health`)
+      .pipe(map(res => res.data));
+  }
+
+  getSystemMetrics(): Observable<SystemMetrics> {
+    return this.http.get<ApiResponse<SystemMetrics>>(`${API_URL}/admin/system/metrics`)
+      .pipe(map(res => res.data));
+  }
+
+  getServicesStatus(): Observable<ServiceStatus[]> {
+    return this.http.get<ApiResponse<ServiceStatus[]>>(`${API_URL}/admin/system/services`)
+      .pipe(map(res => res.data || []));
+  }
+
+  getDatabaseStats(): Observable<DatabaseStats> {
+    return this.http.get<ApiResponse<DatabaseStats>>(`${API_URL}/admin/system/database`)
+      .pipe(map(res => res.data));
+  }
+
+  getActivityLogs(limit: number = 50): Observable<ActivityLog[]> {
+    return this.http.get<ApiResponse<ActivityLog[]>>(`${API_URL}/admin/system/activity-logs`, {
+      params: { limit: limit.toString() }
+    }).pipe(map(res => res.data || []));
+  }
+
+  // ============ Backup Management ============
+
+  getBackups(): Observable<BackupInfo[]> {
+    return this.http.get<ApiResponse<BackupInfo[]>>(`${API_URL}/admin/system/backups`)
+      .pipe(map(res => res.data || []));
+  }
+
+  createBackup(request: CreateBackupRequest): Observable<BackupInfo> {
+    return this.http.post<ApiResponse<BackupInfo>>(`${API_URL}/admin/system/backups`, request)
+      .pipe(map(res => res.data));
+  }
+
+  restoreBackup(backupId: string): Observable<any> {
+    return this.http.post<ApiResponse<any>>(`${API_URL}/admin/system/backups/${backupId}/restore`, {})
+      .pipe(map(res => res.data));
+  }
+
+  deleteBackup(backupId: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/admin/system/backups/${backupId}`);
+  }
+
+  getBackupSchedule(): Observable<BackupSchedule> {
+    return this.http.get<ApiResponse<BackupSchedule>>(`${API_URL}/admin/system/backups/schedule`)
+      .pipe(map(res => res.data));
+  }
+
+  updateBackupSchedule(request: UpdateScheduleRequest): Observable<BackupSchedule> {
+    return this.http.put<ApiResponse<BackupSchedule>>(`${API_URL}/admin/system/backups/schedule`, request)
+      .pipe(map(res => res.data));
+  }
+
+  // ============ Advanced Statistics ============
+
+  getOverviewStats(): Observable<OverviewStats> {
+    return this.http.get<ApiResponse<OverviewStats>>(`${API_URL}/admin/system/stats/overview`)
+      .pipe(map(res => res.data));
+  }
+
+  getUserStats(): Observable<UserStats> {
+    return this.http.get<ApiResponse<UserStats>>(`${API_URL}/admin/system/stats/users`)
+      .pipe(map(res => res.data));
+  }
+
+  getCourseStats(): Observable<CourseStats> {
+    return this.http.get<ApiResponse<CourseStats>>(`${API_URL}/admin/system/stats/courses`)
+      .pipe(map(res => res.data));
+  }
+
+  getEngagementStats(): Observable<EngagementStats> {
+    return this.http.get<ApiResponse<EngagementStats>>(`${API_URL}/admin/system/stats/engagement`)
+      .pipe(map(res => res.data));
   }
 }

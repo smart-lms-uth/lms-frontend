@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ActivityHistoryComponent } from '../../activity-history/activity-history.component';
 import { EditModeService } from '../../../services/edit-mode.service';
+import { NavigationService } from '../../../services/navigation.service';
 
 @Component({
   selector: 'app-header',
@@ -683,18 +684,15 @@ export class HeaderComponent {
 
   constructor(private elementRef: ElementRef) {}
 
+  private nav = inject(NavigationService);
+
   get isTeacher(): boolean {
     return this.userRole === 'Giảng viên' || this.userRole === 'TEACHER' || 
            this.userRole === 'Quản trị viên' || this.userRole === 'ADMIN';
   }
 
   get homeLink(): string {
-    if (this.userRole === 'Giảng viên' || this.userRole === 'TEACHER') {
-      return '/teacher/dashboard';
-    } else if (this.userRole === 'Quản trị viên' || this.userRole === 'ADMIN') {
-      return '/admin/dashboard';
-    }
-    return '/dashboard';
+    return this.nav.getDashboardUrl();
   }
 
   @HostListener('document:click', ['$event'])

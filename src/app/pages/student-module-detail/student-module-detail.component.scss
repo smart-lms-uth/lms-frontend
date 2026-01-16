@@ -215,6 +215,41 @@
   margin-bottom: 1.5rem;
 }
 
+/* Livestream Info Card */
+.livestream-info-card {
+  margin-bottom: 1.5rem;
+}
+
+.livestream-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  background: var(--gray-50);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.livestream-meeting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  
+  .meeting-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .meeting-url {
+    color: var(--gray-500);
+    font-size: 0.875rem;
+    word-break: break-all;
+    margin: 0;
+  }
+}
+
 .content-preview {
   margin-bottom: 1.25rem;
 }
@@ -767,6 +802,12 @@
     background: #fffbeb;
     border: 1px solid #fde68a;
     color: #d97706;
+  }
+  
+  &--info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #2563eb;
   }
 }
 

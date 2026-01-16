@@ -49,4 +49,22 @@ export class CourseSidebarComponent {
   trackByModule(index: number, module: Module): number {
     return module.id;
   }
+
+  /**
+   * Handle drag start for module - sets data for chat widget drop zone
+   */
+  onModuleDragStart(event: DragEvent, module: Module, section: Section): void {
+    if (event.dataTransfer) {
+      const data = {
+        type: 'module',
+        id: module.id,
+        title: module.title,
+        sectionId: section.id,
+        sectionTitle: section.title,
+        moduleType: module.type
+      };
+      event.dataTransfer.setData('application/json', JSON.stringify(data));
+      event.dataTransfer.effectAllowed = 'copy';
+    }
+  }
 }

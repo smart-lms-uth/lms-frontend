@@ -1,0 +1,310 @@
+<!-- Chat Toggle Button -->
+<button class="chat-toggle-btn" [class.has-unread]="hasUnread()" (click)="toggleChat()"
+  [attr.aria-label]="isOpen() ? 'Đóng chat' : 'Mở chat AI'">
+  @if (isOpen()) {
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+  } @else {
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+    <circle cx="12" cy="5" r="2"></circle>
+    <circle cx="8" cy="16" r="1" fill="currentColor"></circle>
+    <circle cx="16" cy="16" r="1" fill="currentColor"></circle>
+    <path d="M9 19h6"></path>
+  </svg>
+  @if (hasUnread()) {
+  <span class="unread-badge">!</span>
+  }
+  }
+</button>
+
+<!-- Chat Window -->
+@if (isOpen()) {
+<div class="chat-widget" [@slideUp]>
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="header-info">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+        <circle cx="12" cy="5" r="2"></circle>
+        <circle cx="8" cy="16" r="1" fill="currentColor"></circle>
+        <circle cx="16" cy="16" r="1" fill="currentColor"></circle>
+        <path d="M9 19h6"></path>
+      </svg>
+      <div class="header-text">
+        <span>AI Assistant</span>
+        @if (currentCourse()) {
+        <span class="course-context" title="Đang hỗ trợ khóa: {{ currentCourse()!.courseName }}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          {{ currentCourse()!.courseName | slice:0:25 }}{{ currentCourse()!.courseName.length > 25 ? '...' : '' }}
+        </span>
+        }
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn" (click)="clearChat()" title="Xóa cuộc hội thoại">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+      </button>
+      <button class="header-btn" (click)="toggleChat()" title="Đóng">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages" #messagesContainer (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)" [class.drag-over]="isDragOver()">
+
+    @if (isDragOver()) {
+    <div class="drop-overlay">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+      <p>Thả section/module vào đây</p>
+      <span class="hint">để hỏi AI về nội dung đó</span>
+    </div>
+    }
+
+    @if (messages().length === 0) {
+    <div class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      @if (currentCourse()) {
+      <p>Xin chào! Tôi đang hỗ trợ khóa học:</p>
+      <p class="course-name"><strong>{{ currentCourse()!.courseName }}</strong></p>
+      <p class="hint">Hãy hỏi tôi về khóa học này!</p>
+      } @else {
+      <p>Xin chào! Tôi là AI Assistant.</p>
+      <p class="hint">Hãy hỏi tôi bất cứ điều gì về khóa học của bạn.</p>
+      }
+
+      <div class="quick-actions">
+        @if (currentCourse()) {
+        <button class="quick-btn highlight" (click)="openCreateLivestream()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+          Tạo buổi học online
+        </button>
+        <button class="quick-btn" (click)="sendQuickMessage('Tạo một bài giảng về nội dung mới cho chương này')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          Soạn bài giảng
+        </button>
+        <button class="quick-btn" (click)="sendQuickMessage('Tạo 5 câu hỏi quiz cho chương này')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          Tạo quiz
+        </button>
+        <button class="quick-btn" (click)="sendQuickMessage('Tạo một bài tập thực hành cho chương này')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+            <line x1="9" y1="12" x2="15" y2="12"></line>
+            <line x1="9" y1="16" x2="15" y2="16"></line>
+          </svg>
+          Tạo bài tập
+        </button>
+        <button class="quick-btn" (click)="sendQuickMessage('Tóm tắt nội dung khóa học này')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          Tóm tắt khóa học
+        </button>
+        <button class="quick-btn analytics" (click)="sendQuickMessage('Sinh viên nào đang có nguy cơ rớt môn?')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Phân tích rớt môn
+        </button>
+        <button class="quick-btn analytics" (click)="sendQuickMessage('Sinh viên nào ít thường xuyên truy cập?')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          Kiểm tra chuyên cần
+        </button>
+        <button class="quick-btn analytics" (click)="sendQuickMessage('Lấy ngẫu nhiên 5 sinh viên chưa có điểm cộng')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+            </polygon>
+          </svg>
+          Chọn người nhận điểm cộng
+        </button>
+        <button class="quick-btn analytics highlight" (click)="sendQuickMessage('Tổng kết hoạt động của lớp tuần này')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+          Báo cáo tuần
+        </button>
+        <button class="quick-btn analytics"
+          (click)="sendQuickMessage('Phần nào trong khóa học sinh viên đang gặp khó khăn nhất?')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          Tìm điểm nghẽn
+        </button>
+        } @else {
+        <button class="quick-btn" (click)="sendQuickMessage('Gợi ý cách tạo quiz hiệu quả')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="9" y1="18" x2="15" y2="18"></line>
+            <line x1="10" y1="22" x2="14" y2="22"></line>
+            <path
+              d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14">
+            </path>
+          </svg>
+          Gợi ý tạo quiz
+        </button>
+        <button class="quick-btn" (click)="sendQuickMessage('Cách thu hút sinh viên tham gia học')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Thu hút sinh viên
+        </button>
+        <button class="quick-btn" (click)="sendQuickMessage('Tạo nội dung bài giảng về chủ đề AI')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          Tạo nội dung
+        </button>
+        }
+      </div>
+    </div>
+    } @else {
+    @for (msg of messages(); track msg.id) {
+    <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+      <div class="message-avatar">
+        @if (msg.role === 'user') {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        } @else {
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+          <circle cx="12" cy="5" r="2"></circle>
+          <circle cx="8" cy="16" r="1" fill="currentColor"></circle>
+          <circle cx="16" cy="16" r="1" fill="currentColor"></circle>
+          <path d="M9 19h6"></path>
+        </svg>
+        }
+      </div>
+      <div class="message-content">
+        <div class="message-text" [innerHTML]="formatMessage(msg.content)"></div>
+        <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
+      </div>
+    </div>
+    }
+
+    @if (isLoading()) {
+    <div class="message assistant">
+      <div class="message-avatar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+          <circle cx="12" cy="5" r="2"></circle>
+          <circle cx="8" cy="16" r="1" fill="currentColor"></circle>
+          <circle cx="16" cy="16" r="1" fill="currentColor"></circle>
+          <path d="M9 19h6"></path>
+        </svg>
+      </div>
+      <div class="message-content">
+        <div class="typing-indicator">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+    }
+    }
+  </div>
+
+  <!-- Input -->
+  <div class="chat-input-area">
+    @if (droppedContext()) {
+    <div class="context-chip">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        @if (droppedContext()!.type === 'section') {
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        } @else {
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        }
+      </svg>
+      <span>{{ droppedContext()!.title | slice:0:30 }}{{ droppedContext()!.title.length > 30 ? '...' : '' }}</span>
+      <button class="remove-context" (click)="clearDroppedContext()" title="Xóa context">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    }
+    <div class="chat-input">
+      <input type="text" [(ngModel)]="inputMessage" (keyup.enter)="sendMessage()"
+        [placeholder]="droppedContext() ? 'Hỏi về ' + droppedContext()!.title + '...' : 'Nhập tin nhắn...'"
+        [disabled]="isLoading()" #messageInput />
+      <button class="send-btn" (click)="sendMessage()" [disabled]="!inputMessage.trim() || isLoading()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Smart Suggestions -->
+    @if (suggestedActions().length > 0 && !isLoading()) {
+    <div class="smart-suggestions">
+      @for (action of suggestedActions(); track action.text) {
+      <button class="suggestion-chip" (click)="sendQuickMessage(action.text)">
+        <span class="chip-icon">{{ action.icon }}</span>
+        <span class="chip-text">{{ action.text }}</span>
+      </button>
+      }
+    </div>
+    }
+  </div>
+</div>
+}

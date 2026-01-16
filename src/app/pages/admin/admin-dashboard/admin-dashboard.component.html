@@ -1,0 +1,542 @@
+<app-main-layout>
+  <div class="admin-dashboard">
+    <div class="page-header">
+      <div class="header-content">
+        <h1><mat-icon class="header-icon">dashboard</mat-icon> Bảng điều khiển Quản trị</h1>
+        <p class="subtitle">Tổng quan hệ thống quản lý học tập</p>
+      </div>
+      <div class="header-actions">
+        <button class="refresh-btn" (click)="refreshAll()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon> Làm mới
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="dashboard-tabs">
+      <button class="tab-btn" [class.active]="activeTab() === 'overview'" (click)="activeTab.set('overview')">
+        <mat-icon>bar_chart</mat-icon> Tổng quan
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'monitoring'"
+        (click)="activeTab.set('monitoring'); loadMonitoringData()">
+        <mat-icon>monitor_heart</mat-icon> Giám sát hệ thống
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'backup'"
+        (click)="activeTab.set('backup'); loadBackupData()">
+        <mat-icon>backup</mat-icon> Sao lưu
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'activity'"
+        (click)="activeTab.set('activity'); loadActivityLogs()">
+        <mat-icon>history</mat-icon> Nhật ký hoạt động
+      </button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div class="tab-content" *ngIf="activeTab() === 'overview'">
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card primary">
+          <div class="stat-icon"><mat-icon>menu_book</mat-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ subjects().length }}</span>
+            <span class="stat-label">Môn học</span>
+          </div>
+        </div>
+
+        <div class="stat-card success">
+          <div class="stat-icon"><mat-icon>event</mat-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ semesters().length }}</span>
+            <span class="stat-label">Học kỳ</span>
+          </div>
+        </div>
+
+        <div class="stat-card info">
+          <div class="stat-icon"><mat-icon>school</mat-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ courses().length }}</span>
+            <span class="stat-label">Khóa học</span>
+          </div>
+        </div>
+
+        <div class="stat-card warning">
+          <div class="stat-icon"><mat-icon>play_circle</mat-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ openCourses() }}</span>
+            <span class="stat-label">Đang mở</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="section">
+        <h2><mat-icon>flash_on</mat-icon> Thao tác nhanh</h2>
+        <div class="quick-actions">
+          <a routerLink="/admin/semesters" class="action-btn">
+            <mat-icon class="action-icon">event</mat-icon>
+            <span>Quản lý Học kỳ</span>
+          </a>
+          <a routerLink="/admin/subjects" class="action-btn">
+            <mat-icon class="action-icon">menu_book</mat-icon>
+            <span>Quản lý Môn học</span>
+          </a>
+          <a routerLink="/admin/courses" class="action-btn">
+            <mat-icon class="action-icon">school</mat-icon>
+            <span>Quản lý Khóa học</span>
+          </a>
+          <a routerLink="/admin/users" class="action-btn">
+            <mat-icon class="action-icon">group</mat-icon>
+            <span>Quản lý Người dùng</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Current Semester -->
+      <div class="section" *ngIf="currentSemester()">
+        <h2><mat-icon>event_available</mat-icon> Học kỳ hiện tại</h2>
+        <div class="current-semester-card">
+          <div class="semester-info">
+            <h3>{{ currentSemester()?.displayName }}</h3>
+            <p class="semester-code">{{ currentSemester()?.semesterCode }}</p>
+            <p class="semester-dates">
+              {{ formatDate(currentSemester()?.startDate) }} - {{ formatDate(currentSemester()?.endDate) }}
+            </p>
+          </div>
+          <div class="semester-stats">
+            <div class="mini-stat">
+              <span class="value">{{ getCoursesInSemester(currentSemester()?.id).length }}</span>
+              <span class="label">Khóa học</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Courses -->
+      <div class="section">
+        <h2><mat-icon>school</mat-icon> Khóa học gần đây</h2>
+        <div class="courses-table-wrapper" *ngIf="courses().length > 0; else noCourses">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mã khóa học</th>
+                <th>Môn học</th>
+                <th>Học kỳ</th>
+                <th>Trạng thái</th>
+                <th>Số SV</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let course of courses().slice(0, 5)">
+                <td><strong>{{ course.courseCode }}</strong></td>
+                <td>{{ course.subjectName }}</td>
+                <td>{{ course.semesterCode }}</td>
+                <td>
+                  <span class="status-badge" [class]="getStatusClass(course.status)">
+                    {{ getStatusLabel(course.status) }}
+                  </span>
+                </td>
+                <td>{{ course.currentEnrollment }}/{{ course.maxStudents }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noCourses>
+          <div class="empty-state">
+            <mat-icon>school</mat-icon>
+            <p>Chưa có khóa học nào</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+
+    <!-- Monitoring Tab -->
+    <div class="tab-content" *ngIf="activeTab() === 'monitoring'">
+      <!-- System Health -->
+      <div class="health-banner" [class]="getHealthClass(systemHealth()?.status)">
+        <div class="health-icon">
+          <mat-icon>{{ systemHealth()?.status === 'HEALTHY' ? 'check_circle' : systemHealth()?.status === 'WARNING' ?
+            'warning' : 'error' }}</mat-icon>
+        </div>
+        <div class="health-info">
+          <h3>Trạng thái hệ thống: {{ getHealthLabel(systemHealth()?.status) }}</h3>
+          <p>Cập nhật lúc: {{ getHealthTimestamp() }}</p>
+        </div>
+        <div class="health-details">
+          <span class="health-item"><mat-icon>storage</mat-icon> Database: {{
+            systemHealth()?.components?.database?.status || 'N/A' }}</span>
+          <span class="health-item"><mat-icon>flash_on</mat-icon> Redis: {{ systemHealth()?.components?.cache?.status ||
+            'N/A' }}</span>
+          <span class="health-item"><mat-icon>save</mat-icon> Disk: {{ systemHealth()?.components?.storage?.status ||
+            'N/A' }}</span>
+        </div>
+      </div>
+
+      <!-- Metrics Grid -->
+      <div class="metrics-grid">
+        <!-- CPU Usage -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <mat-icon class="metric-icon">memory</mat-icon>
+            <span class="metric-title">CPU</span>
+          </div>
+          <div class="metric-gauge">
+            <svg viewBox="0 0 100 50">
+              <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="#e2e8f0" stroke-width="8" />
+              <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" [attr.stroke]="getGaugeColor(getCpuUsage())"
+                stroke-width="8" [attr.stroke-dasharray]="getGaugeDashArray(getCpuUsage())" />
+            </svg>
+            <span class="gauge-value">{{ getCpuUsage() | number:'1.1-1' }}%</span>
+          </div>
+          <p class="metric-detail">{{ systemMetrics()?.cpu?.availableProcessors || 0 }} processors | Load: {{
+            (systemMetrics()?.cpu?.systemLoadAverage || 0) | number:'1.2-2' }}</p>
+        </div>
+
+        <!-- Memory Usage -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <mat-icon class="metric-icon">dns</mat-icon>
+            <span class="metric-title">RAM (Heap)</span>
+          </div>
+          <div class="metric-gauge">
+            <svg viewBox="0 0 100 50">
+              <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="#e2e8f0" stroke-width="8" />
+              <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none"
+                [attr.stroke]="getGaugeColor(systemMetrics()?.memory?.heapUsedPercent || 0)" stroke-width="8"
+                [attr.stroke-dasharray]="getGaugeDashArray(systemMetrics()?.memory?.heapUsedPercent || 0)" />
+            </svg>
+            <span class="gauge-value">{{ (systemMetrics()?.memory?.heapUsedPercent || 0) | number:'1.1-1' }}%</span>
+          </div>
+          <p class="metric-detail">{{ systemMetrics()?.memory?.heapUsed || 'N/A' }} / {{
+            systemMetrics()?.memory?.heapMax || 'N/A' }}</p>
+        </div>
+
+        <!-- Disk Usage -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <mat-icon class="metric-icon">save</mat-icon>
+            <span class="metric-title">Disk</span>
+          </div>
+          <div class="metric-gauge">
+            <svg viewBox="0 0 100 50">
+              <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="#e2e8f0" stroke-width="8" />
+              <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none"
+                [attr.stroke]="getGaugeColor(systemMetrics()?.disk?.usedPercent || 0)" stroke-width="8"
+                [attr.stroke-dasharray]="getGaugeDashArray(systemMetrics()?.disk?.usedPercent || 0)" />
+            </svg>
+            <span class="gauge-value">{{ (systemMetrics()?.disk?.usedPercent || 0) | number:'1.1-1' }}%</span>
+          </div>
+          <p class="metric-detail">{{ systemMetrics()?.disk?.usableSpace || 'N/A' }} free / {{
+            systemMetrics()?.disk?.totalSpace || 'N/A' }}</p>
+        </div>
+
+        <!-- Uptime -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <mat-icon class="metric-icon">schedule</mat-icon>
+            <span class="metric-title">Uptime</span>
+          </div>
+          <div class="uptime-value">
+            {{ systemMetrics()?.uptime || 'N/A' }}
+          </div>
+          <p class="metric-detail">Threads: {{ systemMetrics()?.threadCount || 0 }}</p>
+        </div>
+      </div>
+
+      <!-- Services Status -->
+      <div class="section">
+        <h2><mat-icon>hub</mat-icon> Trạng thái Dịch vụ</h2>
+        <div class="services-grid">
+          <div class="service-card" *ngFor="let service of servicesStatus()"
+            [class]="'status-' + service.status.toLowerCase()">
+            <div class="service-icon">
+              <mat-icon>{{ getServiceIcon(service.name) }}</mat-icon>
+            </div>
+            <div class="service-info">
+              <h4>{{ service.name }}</h4>
+              <span class="service-type">{{ service.type }}</span>
+              <span class="service-status">{{ service.status }}</span>
+              <span class="service-port" *ngIf="service.port">
+                Port: {{ service.port }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Database Stats -->
+      <div class="section" *ngIf="databaseStats()">
+        <h2><mat-icon>storage</mat-icon> Thống kê Database</h2>
+        <div class="db-overview">
+          <div class="db-stat">
+            <span class="db-value">{{ databaseStats()?.databaseSize }}</span>
+            <span class="db-label">Dung lượng DB</span>
+          </div>
+          <div class="db-stat">
+            <span class="db-value">{{ databaseStats()?.connections?.active_connections }}</span>
+            <span class="db-label">Kết nối hoạt động</span>
+          </div>
+          <div class="db-stat">
+            <span class="db-value">{{ databaseStats()?.connections?.commits | number }}</span>
+            <span class="db-label">Commits</span>
+          </div>
+          <div class="db-stat">
+            <span class="db-value">{{ databaseStats()?.connections?.rollbacks | number }}</span>
+            <span class="db-label">Rollbacks</span>
+          </div>
+        </div>
+        <table class="data-table" *ngIf="databaseStats()?.topTables?.length">
+          <thead>
+            <tr>
+              <th>Bảng</th>
+              <th>Số dòng</th>
+              <th>Dữ liệu</th>
+              <th>Tổng</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let table of databaseStats()?.topTables">
+              <td><code>{{ table.table_name }}</code></td>
+              <td>{{ table.row_count | number }}</td>
+              <td>{{ table.data_size }}</td>
+              <td>{{ table.total_size }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Backup Tab -->
+    <div class="tab-content" *ngIf="activeTab() === 'backup'">
+      <!-- Backup Actions -->
+      <div class="backup-actions-section">
+        <h2><mat-icon>add_circle</mat-icon> Tạo Backup Thủ công</h2>
+        <p class="section-description">Tạo bản sao lưu ngay lập tức cho hệ thống</p>
+        <div class="backup-actions">
+          <button class="backup-btn primary" (click)="createBackup('all')" [disabled]="creatingBackup()"
+            matTooltip="Sao lưu tất cả databases">
+            <mat-icon>cloud_upload</mat-icon>
+            <span>Sao lưu toàn bộ</span>
+            <mat-spinner *ngIf="creatingBackup()" diameter="18"></mat-spinner>
+          </button>
+          <button class="backup-btn postgres" (click)="createBackup('postgres')" [disabled]="creatingBackup()"
+            matTooltip="Sao lưu PostgreSQL">
+            <mat-icon>storage</mat-icon>
+            <span>PostgreSQL</span>
+          </button>
+          <button class="backup-btn redis" (click)="createBackup('redis')" [disabled]="creatingBackup()"
+            matTooltip="Sao lưu Redis cache">
+            <mat-icon>flash_on</mat-icon>
+            <span>Redis</span>
+          </button>
+          <button class="backup-btn mongodb" (click)="createBackup('mongodb')" [disabled]="creatingBackup()"
+            matTooltip="Sao lưu MongoDB">
+            <mat-icon>eco</mat-icon>
+            <span>MongoDB</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Backup Schedule Configuration -->
+      <div class="section schedule-section">
+        <div class="section-header">
+          <h2><mat-icon>schedule</mat-icon> Sao lưu Tự động</h2>
+          <div class="schedule-toggle">
+            <mat-slide-toggle [checked]="scheduleConfig.enabled" (change)="toggleScheduleEnabled()" color="primary">
+              {{ scheduleConfig.enabled ? 'Đang bật' : 'Đang tắt' }}
+            </mat-slide-toggle>
+          </div>
+        </div>
+
+        <div class="schedule-config-card" [class.disabled]="!scheduleConfig.enabled">
+          <div class="schedule-summary" *ngIf="!editingSchedule()">
+            <div class="schedule-info-grid">
+              <div class="schedule-item">
+                <mat-icon>repeat</mat-icon>
+                <div>
+                  <span class="label">Tần suất</span>
+                  <span class="value">{{ getFrequencyLabel(scheduleConfig.frequency) }}</span>
+                </div>
+              </div>
+              <div class="schedule-item">
+                <mat-icon>access_time</mat-icon>
+                <div>
+                  <span class="label">Thời gian</span>
+                  <span class="value">{{ scheduleConfig.time }}</span>
+                </div>
+              </div>
+              <div class="schedule-item">
+                <mat-icon>event_repeat</mat-icon>
+                <div>
+                  <span class="label">Giữ lại</span>
+                  <span class="value">{{ scheduleConfig.retentionDays }} ngày</span>
+                </div>
+              </div>
+              <div class="schedule-item">
+                <mat-icon>checklist</mat-icon>
+                <div>
+                  <span class="label">Loại backup</span>
+                  <span class="value">{{ getSelectedTypesCount() }} loại đã chọn</span>
+                </div>
+              </div>
+            </div>
+            <div class="next-run-info" *ngIf="backupSchedule()?.nextRun">
+              <mat-icon>upcoming</mat-icon>
+              <span>Lần chạy tiếp: <strong>{{ backupSchedule()?.nextRun | date:'HH:mm dd/MM/yyyy' }}</strong></span>
+            </div>
+            <button class="edit-schedule-btn" (click)="toggleEditSchedule()" [disabled]="!scheduleConfig.enabled">
+              <mat-icon>edit</mat-icon> Chỉnh sửa cấu hình
+            </button>
+          </div>
+
+          <div class="schedule-edit-form" *ngIf="editingSchedule()">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Tần suất sao lưu</label>
+                <select [(ngModel)]="scheduleConfig.frequency" class="form-select">
+                  <option value="hourly">Mỗi giờ</option>
+                  <option value="daily">Hàng ngày</option>
+                  <option value="weekly">Hàng tuần</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Thời gian chạy</label>
+                <input type="time" [(ngModel)]="scheduleConfig.time" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label>Số ngày giữ lại</label>
+                <input type="number" [(ngModel)]="scheduleConfig.retentionDays" min="1" max="365" class="form-input" />
+              </div>
+            </div>
+
+            <div class="form-group types-group">
+              <label>Loại backup (chọn ít nhất 1)</label>
+              <div class="types-checkboxes">
+                <label class="checkbox-item">
+                  <mat-checkbox [(ngModel)]="scheduleConfig.types.postgres" color="primary"></mat-checkbox>
+                  <mat-icon>storage</mat-icon>
+                  <span>PostgreSQL</span>
+                </label>
+                <label class="checkbox-item">
+                  <mat-checkbox [(ngModel)]="scheduleConfig.types.redis" color="primary"></mat-checkbox>
+                  <mat-icon>flash_on</mat-icon>
+                  <span>Redis</span>
+                </label>
+                <label class="checkbox-item">
+                  <mat-checkbox [(ngModel)]="scheduleConfig.types.mongodb" color="primary"></mat-checkbox>
+                  <mat-icon>eco</mat-icon>
+                  <span>MongoDB</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn-cancel" (click)="toggleEditSchedule()">
+                <mat-icon>close</mat-icon> Hủy
+              </button>
+              <button class="btn-save" (click)="saveScheduleConfig()"
+                [disabled]="savingSchedule() || getSelectedTypesCount() === 0">
+                <mat-icon>save</mat-icon> Lưu cấu hình
+                <mat-spinner *ngIf="savingSchedule()" diameter="16"></mat-spinner>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Backup List -->
+      <div class="section">
+        <h2><mat-icon>folder</mat-icon> Danh sách Backup</h2>
+        <div class="backup-list" *ngIf="backups().length > 0; else noBackups">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Loại</th>
+                <th>Trạng thái</th>
+                <th>Kích thước</th>
+                <th>Thời gian</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let backup of backups()">
+                <td><code>{{ backup.id }}</code></td>
+                <td>
+                  <span class="backup-type" [class]="'type-' + backup.type.toLowerCase()">
+                    <mat-icon>{{ getBackupTypeIcon(backup.type) }}</mat-icon>
+                    {{ getBackupTypeLabel(backup.type) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="backup-status" [class]="'status-' + backup.status.toLowerCase()">
+                    {{ getBackupStatusLabel(backup.status) }}
+                  </span>
+                </td>
+                <td>{{ backup.size }}</td>
+                <td>{{ backup.createdAt | date:'HH:mm dd/MM/yyyy' }}</td>
+                <td class="actions">
+                  <button class="icon-btn restore" (click)="restoreBackup(backup)" matTooltip="Khôi phục từ backup này"
+                    [disabled]="backup.status !== 'COMPLETED'">
+                    <mat-icon>restore</mat-icon>
+                  </button>
+                  <button class="icon-btn delete" (click)="deleteBackup(backup)" matTooltip="Xóa backup">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noBackups>
+          <div class="empty-state">
+            <mat-icon>cloud_off</mat-icon>
+            <p>Chưa có bản sao lưu nào</p>
+            <span class="hint">Nhấn nút "Sao lưu toàn bộ" để tạo backup đầu tiên</span>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+
+    <!-- Activity Tab -->
+    <div class="tab-content" *ngIf="activeTab() === 'activity'">
+      <div class="section">
+        <div class="section-header">
+          <h2><mat-icon>history</mat-icon> Nhật ký hoạt động gần đây</h2>
+          <select [(ngModel)]="activityLimit" (change)="loadActivityLogs()">
+            <option [value]="20">20 mục</option>
+            <option [value]="50">50 mục</option>
+            <option [value]="100">100 mục</option>
+          </select>
+        </div>
+        <div class="activity-list" *ngIf="activityLogs().length > 0; else noActivity">
+          <div class="activity-item" *ngFor="let log of activityLogs()">
+            <div class="activity-icon">
+              <mat-icon>{{ getActivityIcon(log.action) }}</mat-icon>
+            </div>
+            <div class="activity-content">
+              <p class="activity-text">
+                <strong>{{ log.userName }}</strong>
+                {{ getActivityLabel(log.action) }}
+                <span class="entity-type">{{ log.entityType }}</span>
+                <span class="entity-id">#{{ log.entityId }}</span>
+              </p>
+              <span class="activity-time">{{ log.timestamp | date:'HH:mm dd/MM/yyyy' }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noActivity>
+          <div class="empty-state">
+            <mat-icon>inbox</mat-icon>
+            <p>Chưa có hoạt động nào được ghi nhận</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-overlay" *ngIf="loading()">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Đang tải dữ liệu...</p>
+    </div>
+  </div>
+</app-main-layout>

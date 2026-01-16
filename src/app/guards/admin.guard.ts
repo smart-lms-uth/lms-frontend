@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { CanActivate, Router, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { Observable, map, take } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { NavigationService } from '../services/navigation.service';
 
 @Injectable({
   providedIn: 'root'
@@ -10,7 +11,8 @@ export class AdminGuard implements CanActivate {
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private navigationService: NavigationService
   ) {}
 
   canActivate(
@@ -31,12 +33,8 @@ export class AdminGuard implements CanActivate {
           return true;
         }
         
-        // Redirect non-admin users to their dashboard
-        if (user?.role === 'TEACHER') {
-          this.router.navigate(['/teacher/dashboard']);
-        } else {
-          this.router.navigate(['/dashboard']);
-        }
+        // Redirect non-admin users to their role-based dashboard
+        this.router.navigate([this.navigationService.getRouteByRole(user?.role)]);
         return false;
       })
     );

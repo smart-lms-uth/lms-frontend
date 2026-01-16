@@ -47,6 +47,27 @@ export class NavigationService {
   }
 
   /**
+   * Lấy dashboard URL của user hiện tại
+   * Dùng cho routerLink và breadcrumbs
+   */
+  getDashboardUrl(): string {
+    const user = this.authService.getCurrentUserSync();
+    return this.getRouteByRole(user?.role);
+  }
+
+  /**
+   * Lấy tên dashboard theo role
+   */
+  getDashboardLabel(): string {
+    const user = this.authService.getCurrentUserSync();
+    switch (user?.role) {
+      case 'ADMIN': return 'Admin Dashboard';
+      case 'TEACHER': return 'Teacher Dashboard';
+      default: return 'Dashboard';
+    }
+  }
+
+  /**
    * Kiểm tra user có role ADMIN không
    */
   isAdmin(user?: User | null): boolean {

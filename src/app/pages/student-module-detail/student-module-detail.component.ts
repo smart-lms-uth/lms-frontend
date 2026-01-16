@@ -11,6 +11,7 @@ import { SubmissionService, AssignmentSubmission, UploadProgress } from '../../s
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-student-module-detail',
@@ -29,6 +30,7 @@ import { MarkdownPipe } from '../../pipes/markdown.pipe';
   styleUrls: ['./student-module-detail.component.scss']
 })
 export class StudentModuleDetailComponent implements OnInit, OnDestroy {
+  private nav = inject(NavigationService);
   loading = signal(true);
   submitting = signal(false);
   
@@ -64,10 +66,12 @@ export class StudentModuleDetailComponent implements OnInit, OnDestroy {
   isDragging = signal(false);
   
   // Deadline info
+  openDate = signal<Date | null>(null);
   dueDate = signal<Date | null>(null);
   allowLateSubmission = signal(false);
   timeRemaining = signal<string>('');
   isOverdue = signal(false);
+  isNotYetOpen = signal(false);
   private deadlineInterval: any;
   
   // Current user
@@ -190,6 +194,16 @@ export class StudentModuleDetailComponent implements OnInit, OnDestroy {
               try {
                 const parsed = typeof settings === 'string' ? JSON.parse(settings) : settings;
                 this.maxAttempts.set(parsed.maxAttempts || 1);
+                
+                // Parse open date
+                if (parsed.openDate) {
+                  this.openDate.set(new Date(parsed.openDate));
+                  // Check if not yet open
+                  const now = new Date();
+                  if (now < new Date(parsed.openDate)) {
+                    this.isNotYetOpen.set(true);
+                  }
+                }
                 
                 // Parse deadline
                 if (parsed.dueDate) {
@@ -548,7 +562,7 @@ export class StudentModuleDetailComponent implements OnInit, OnDestroy {
 
   getBreadcrumbs(): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
-      { label: 'Khóa học', link: '/dashboard' }
+      { label: 'Khóa học', link: this.nav.getDashboardUrl() }
     ];
     
     if (this.course()) {
@@ -564,6 +578,31 @@ export class StudentModuleDetailComponent implements OnInit, OnDestroy {
     }
     
     return items;
+  }
+
+  /**
+   * Get normalized file URL for viewing
+   */
+  getFileViewUrl(submission: AssignmentSubmission): string {
+    let url = this.submissionService.normalizeFileUrl(submission.fileUrl);
+    if (submission.fileName) {
+      url += (url.includes('?') ? '&' : '?') + 'name=' + encodeURIComponent(submission.fileName);
+    }
+    return url;
+  }
+
+  /**
+   * View submission file
+   */
+  viewSubmissionFile(submission: AssignmentSubmission): void {
+    this.submissionService.viewFile(submission.fileUrl, submission.fileName);
+  }
+
+  /**
+   * Download submission file
+   */
+  downloadSubmissionFile(submission: AssignmentSubmission): void {
+    this.submissionService.downloadSubmissionFile(submission.fileUrl, submission.fileName);
   }
 
   logout() {

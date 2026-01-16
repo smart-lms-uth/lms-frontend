@@ -4,7 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ApiResponse } from './course.service';
 
-export type EnrollmentStatus = 'ENROLLED' | 'COMPLETED' | 'DROPPED' | 'PENDING';
+export type EnrollmentStatus = 'ACTIVE' | 'CANCELLED' | 'PASSED' | 'FAILED';
 
 export interface Enrollment {
   id: number;
@@ -122,20 +122,20 @@ export class EnrollmentService {
 
   getStatusLabel(status: EnrollmentStatus): string {
     const labels: Record<EnrollmentStatus, string> = {
-      'ENROLLED': 'Đang học',
-      'COMPLETED': 'Hoàn thành',
-      'DROPPED': 'Đã hủy',
-      'PENDING': 'Chờ duyệt'
+      'ACTIVE': 'Đang học',
+      'PASSED': 'Hoàn thành',
+      'CANCELLED': 'Đã hủy',
+      'FAILED': 'Rớt môn'
     };
     return labels[status] || status;
   }
 
   getStatusVariant(status: EnrollmentStatus): 'success' | 'secondary' | 'warning' | 'danger' {
     const variants: Record<EnrollmentStatus, 'success' | 'secondary' | 'warning' | 'danger'> = {
-      'ENROLLED': 'success',
-      'COMPLETED': 'secondary',
-      'DROPPED': 'danger',
-      'PENDING': 'warning'
+      'ACTIVE': 'success',
+      'PASSED': 'secondary',
+      'CANCELLED': 'danger',
+      'FAILED': 'warning'
     };
     return variants[status] || 'secondary';
   }

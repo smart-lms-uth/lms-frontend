@@ -1,388 +1,133 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { AdminService, DashboardStats } from '../../../services/admin.service';
+import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import {
+  AdminService,
+  DashboardStats,
+  SystemHealth,
+  SystemMetrics,
+  ServiceStatus,
+  DatabaseStats,
+  ActivityLog,
+  BackupInfo,
+  BackupSchedule,
+  OverviewStats
+} from '../../../services/admin.service';
 import { Semester, Subject, Course } from '../../../services/course.service';
 import { MainLayoutComponent } from '../../../components/layout/main-layout/main-layout.component';
+
+interface ScheduleConfig {
+  enabled: boolean;
+  frequency: 'hourly' | 'daily' | 'weekly';
+  time: string;
+  retentionDays: number;
+  types: {
+    postgres: boolean;
+    redis: boolean;
+    mongodb: boolean;
+  };
+}
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, MainLayoutComponent],
-  template: `
-    <app-main-layout>
-      <div class="admin-dashboard">
-        <div class="page-header">
-          <h1>🏠 Bảng điều khiển Quản trị</h1>
-          <p class="subtitle">Tổng quan hệ thống quản lý học tập</p>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-          <div class="stat-card primary">
-            <div class="stat-icon">📚</div>
-            <div class="stat-content">
-              <span class="stat-value">{{ subjects().length }}</span>
-              <span class="stat-label">Môn học</span>
-            </div>
-          </div>
-
-          <div class="stat-card success">
-            <div class="stat-icon">📅</div>
-            <div class="stat-content">
-              <span class="stat-value">{{ semesters().length }}</span>
-              <span class="stat-label">Học kỳ</span>
-            </div>
-          </div>
-
-          <div class="stat-card info">
-            <div class="stat-icon">🎓</div>
-            <div class="stat-content">
-              <span class="stat-value">{{ courses().length }}</span>
-              <span class="stat-label">Khóa học</span>
-            </div>
-          </div>
-
-          <div class="stat-card warning">
-            <div class="stat-icon">📖</div>
-            <div class="stat-content">
-              <span class="stat-value">{{ openCourses() }}</span>
-              <span class="stat-label">Đang mở</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="section">
-          <h2>⚡ Thao tác nhanh</h2>
-          <div class="quick-actions">
-            <a routerLink="/admin/semesters" class="action-btn">
-              <span class="icon">📅</span>
-              <span>Quản lý Học kỳ</span>
-            </a>
-            <a routerLink="/admin/subjects" class="action-btn">
-              <span class="icon">📚</span>
-              <span>Quản lý Môn học</span>
-            </a>
-            <a routerLink="/admin/courses" class="action-btn">
-              <span class="icon">🎓</span>
-              <span>Quản lý Khóa học</span>
-            </a>
-            <a routerLink="/admin/users" class="action-btn">
-              <span class="icon">👥</span>
-              <span>Quản lý Người dùng</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Current Semester -->
-        <div class="section" *ngIf="currentSemester()">
-          <h2>📅 Học kỳ hiện tại</h2>
-          <div class="current-semester-card">
-            <div class="semester-info">
-              <h3>{{ currentSemester()?.displayName }}</h3>
-              <p class="semester-code">{{ currentSemester()?.semesterCode }}</p>
-              <p class="semester-dates">
-                {{ formatDate(currentSemester()?.startDate) }} - {{ formatDate(currentSemester()?.endDate) }}
-              </p>
-            </div>
-            <div class="semester-stats">
-              <div class="mini-stat">
-                <span class="value">{{ getCoursesInSemester(currentSemester()?.id).length }}</span>
-                <span class="label">Khóa học</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Recent Courses -->
-        <div class="section">
-          <h2>🎓 Khóa học gần đây</h2>
-          <div class="courses-table-wrapper" *ngIf="courses().length > 0; else noCourses">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Mã khóa học</th>
-                  <th>Môn học</th>
-                  <th>Học kỳ</th>
-                  <th>Trạng thái</th>
-                  <th>Số SV</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let course of courses().slice(0, 5)">
-                  <td><strong>{{ course.courseCode }}</strong></td>
-                  <td>{{ course.subjectName }}</td>
-                  <td>{{ course.semesterCode }}</td>
-                  <td>
-                    <span class="status-badge" [class]="getStatusClass(course.status)">
-                      {{ getStatusLabel(course.status) }}
-                    </span>
-                  </td>
-                  <td>{{ course.currentEnrollment }}/{{ course.maxStudents }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noCourses>
-            <div class="empty-state">
-              <p>Chưa có khóa học nào</p>
-            </div>
-          </ng-template>
-        </div>
-
-        <!-- Loading State -->
-        <div class="loading-overlay" *ngIf="loading()">
-          <div class="spinner"></div>
-          <p>Đang tải dữ liệu...</p>
-        </div>
-      </div>
-    </app-main-layout>
-  `,
-  styles: [`
-    .admin-dashboard {
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      margin-bottom: 32px;
-    }
-
-    .page-header h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1e293b;
-      margin: 0 0 8px 0;
-    }
-
-    .subtitle {
-      color: #64748b;
-      margin: 0;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 32px;
-    }
-
-    .stat-card {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    .stat-card.primary { border-left: 4px solid #3b82f6; }
-    .stat-card.success { border-left: 4px solid #22c55e; }
-    .stat-card.info { border-left: 4px solid #06b6d4; }
-    .stat-card.warning { border-left: 4px solid #f59e0b; }
-
-    .stat-icon {
-      font-size: 32px;
-    }
-
-    .stat-content {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1e293b;
-    }
-
-    .stat-label {
-      font-size: 14px;
-      color: #64748b;
-    }
-
-    .section {
-      background: white;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-
-    .section h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1e293b;
-      margin: 0 0 16px 0;
-    }
-
-    .quick-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-    }
-
-    .action-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      padding: 20px;
-      background: #f8fafc;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #1e293b;
-      transition: all 0.2s;
-    }
-
-    .action-btn:hover {
-      background: #e2e8f0;
-      transform: translateY(-2px);
-    }
-
-    .action-btn .icon {
-      font-size: 28px;
-    }
-
-    .current-semester-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px;
-      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-      border-radius: 12px;
-      color: white;
-    }
-
-    .semester-info h3 {
-      margin: 0 0 4px 0;
-      font-size: 20px;
-    }
-
-    .semester-code {
-      opacity: 0.8;
-      margin: 0 0 8px 0;
-    }
-
-    .semester-dates {
-      font-size: 14px;
-      opacity: 0.9;
-      margin: 0;
-    }
-
-    .mini-stat {
-      text-align: center;
-    }
-
-    .mini-stat .value {
-      display: block;
-      font-size: 32px;
-      font-weight: 700;
-    }
-
-    .mini-stat .label {
-      font-size: 12px;
-      opacity: 0.8;
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .data-table th,
-    .data-table td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .data-table th {
-      background: #f8fafc;
-      font-weight: 600;
-      color: #64748b;
-      font-size: 13px;
-      text-transform: uppercase;
-    }
-
-    .data-table tbody tr:hover {
-      background: #f8fafc;
-    }
-
-    .status-badge {
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .status-badge.open { background: #dcfce7; color: #16a34a; }
-    .status-badge.closed { background: #fee2e2; color: #dc2626; }
-    .status-badge.in-progress { background: #dbeafe; color: #2563eb; }
-    .status-badge.planned { background: #fef3c7; color: #d97706; }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: #64748b;
-    }
-
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255,255,255,0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #e2e8f0;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `]
+  imports: [
+    CommonModule,
+    RouterModule,
+    MainLayoutComponent,
+    FormsModule,
+    MatIconModule,
+    MatSlideToggleModule,
+    MatSelectModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule
+  ],
+  templateUrl: './admin-dashboard.component.html',
+  styleUrls: ['./admin-dashboard.component.scss']
 })
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
   loading = signal(true);
+  activeTab = signal<'overview' | 'monitoring' | 'backup' | 'activity'>('overview');
+
+  // Overview data
   semesters = signal<Semester[]>([]);
   subjects = signal<Subject[]>([]);
   courses = signal<Course[]>([]);
   currentSemester = signal<Semester | null>(null);
-
   openCourses = signal(0);
 
-  constructor(private adminService: AdminService) {}
+  // Monitoring data
+  systemHealth = signal<SystemHealth | null>(null);
+  systemMetrics = signal<SystemMetrics | null>(null);
+  servicesStatus = signal<ServiceStatus[]>([]);
+  databaseStats = signal<DatabaseStats | null>(null);
+
+  // Backup data
+  backups = signal<BackupInfo[]>([]);
+  backupSchedule = signal<BackupSchedule | null>(null);
+  creatingBackup = signal(false);
+
+  // Schedule configuration
+  editingSchedule = signal(false);
+  savingSchedule = signal(false);
+  scheduleConfig: ScheduleConfig = {
+    enabled: true,
+    frequency: 'daily',
+    time: '02:00',
+    retentionDays: 30,
+    types: {
+      postgres: true,
+      redis: true,
+      mongodb: true
+    }
+  };
+
+  // Activity data
+  activityLogs = signal<ActivityLog[]>([]);
+  activityLimit = 50;
+
+  private refreshInterval: any;
+
+  constructor(private adminService: AdminService) { }
 
   ngOnInit() {
     this.loadData();
   }
 
+  ngOnDestroy() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+  }
+
+  refreshAll() {
+    this.loadData();
+    if (this.activeTab() === 'monitoring') {
+      this.loadMonitoringData();
+    } else if (this.activeTab() === 'backup') {
+      this.loadBackupData();
+    } else if (this.activeTab() === 'activity') {
+      this.loadActivityLogs();
+    }
+  }
+
   loadData() {
     this.loading.set(true);
 
-    // Load semesters
     this.adminService.getSemesters().subscribe({
       next: (data) => {
         this.semesters.set(data);
@@ -393,12 +138,10 @@ export class AdminDashboardComponent implements OnInit {
       }
     });
 
-    // Load subjects
     this.adminService.getSubjects().subscribe({
       next: (data) => this.subjects.set(data)
     });
 
-    // Load courses
     this.adminService.getAllCourses().subscribe({
       next: (data) => {
         this.courses.set(data);
@@ -409,6 +152,143 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
+  loadMonitoringData() {
+    this.adminService.getSystemHealth().subscribe({
+      next: (data) => this.systemHealth.set(data),
+      error: () => this.systemHealth.set(null)
+    });
+
+    this.adminService.getSystemMetrics().subscribe({
+      next: (data) => this.systemMetrics.set(data),
+      error: () => this.systemMetrics.set(null)
+    });
+
+    this.adminService.getServicesStatus().subscribe({
+      next: (data) => this.servicesStatus.set(data),
+      error: () => this.servicesStatus.set([])
+    });
+
+    this.adminService.getDatabaseStats().subscribe({
+      next: (data) => this.databaseStats.set(data),
+      error: () => this.databaseStats.set(null)
+    });
+  }
+
+  loadBackupData() {
+    this.adminService.getBackups().subscribe({
+      next: (data) => this.backups.set(data),
+      error: () => this.backups.set([])
+    });
+
+    this.adminService.getBackupSchedule().subscribe({
+      next: (data) => {
+        this.backupSchedule.set(data);
+        // Sync local config with server data
+        if (data) {
+          this.scheduleConfig.enabled = data.enabled;
+          this.scheduleConfig.retentionDays = data.retentionDays;
+          if (data.types) {
+            this.scheduleConfig.types.postgres = data.types.includes('postgres');
+            this.scheduleConfig.types.redis = data.types.includes('redis');
+            this.scheduleConfig.types.mongodb = data.types.includes('mongodb');
+          }
+        }
+      },
+      error: () => this.backupSchedule.set(null)
+    });
+  }
+
+  loadActivityLogs() {
+    this.adminService.getActivityLogs(this.activityLimit).subscribe({
+      next: (data) => this.activityLogs.set(data),
+      error: () => this.activityLogs.set([])
+    });
+  }
+
+  createBackup(type: 'all' | 'postgres' | 'redis' | 'mongodb') {
+    this.creatingBackup.set(true);
+    this.adminService.createBackup({ type }).subscribe({
+      next: () => {
+        this.loadBackupData();
+        this.creatingBackup.set(false);
+        alert('Đã tạo bản sao lưu thành công!');
+      },
+      error: (err) => {
+        this.creatingBackup.set(false);
+        alert('Lỗi khi tạo sao lưu: ' + (err.error?.message || err.message));
+      }
+    });
+  }
+
+  restoreBackup(backup: BackupInfo) {
+    if (!confirm(`Bạn có chắc muốn khôi phục từ backup ${backup.id}? Dữ liệu hiện tại sẽ bị ghi đè.`)) {
+      return;
+    }
+    this.adminService.restoreBackup(backup.id).subscribe({
+      next: () => alert('Khôi phục thành công!'),
+      error: (err) => alert('Lỗi khôi phục: ' + (err.error?.message || err.message))
+    });
+  }
+
+  deleteBackup(backup: BackupInfo) {
+    if (!confirm(`Bạn có chắc muốn xóa backup ${backup.id}?`)) {
+      return;
+    }
+    this.adminService.deleteBackup(backup.id).subscribe({
+      next: () => this.loadBackupData(),
+      error: (err) => alert('Lỗi xóa backup: ' + (err.error?.message || err.message))
+    });
+  }
+
+  // Schedule configuration methods
+  toggleEditSchedule() {
+    this.editingSchedule.set(!this.editingSchedule());
+  }
+
+  toggleScheduleEnabled() {
+    this.scheduleConfig.enabled = !this.scheduleConfig.enabled;
+    this.saveScheduleConfig();
+  }
+
+  saveScheduleConfig() {
+    this.savingSchedule.set(true);
+
+    const types: string[] = [];
+    if (this.scheduleConfig.types.postgres) types.push('postgres');
+    if (this.scheduleConfig.types.redis) types.push('redis');
+    if (this.scheduleConfig.types.mongodb) types.push('mongodb');
+
+    const request = {
+      enabled: this.scheduleConfig.enabled,
+      frequency: this.scheduleConfig.frequency,
+      time: this.scheduleConfig.time,
+      retentionDays: this.scheduleConfig.retentionDays,
+      types: types
+    };
+
+    this.adminService.updateBackupSchedule(request).subscribe({
+      next: (data) => {
+        this.backupSchedule.set(data);
+        this.savingSchedule.set(false);
+        this.editingSchedule.set(false);
+        alert('Đã lưu cấu hình sao lưu!');
+      },
+      error: (err) => {
+        this.savingSchedule.set(false);
+        alert('Lỗi khi lưu cấu hình: ' + (err.error?.message || err.message));
+      }
+    });
+  }
+
+  getSelectedTypesCount(): number {
+    let count = 0;
+    if (this.scheduleConfig.types.postgres) count++;
+    if (this.scheduleConfig.types.redis) count++;
+    if (this.scheduleConfig.types.mongodb) count++;
+    return count;
+  }
+
+  // Helper methods
   getCoursesInSemester(semesterId?: number): Course[] {
     if (!semesterId) return [];
     return this.courses().filter(c => c.semesterId === semesterId);
@@ -417,6 +297,14 @@ export class AdminDashboardComponent implements OnInit {
   formatDate(dateStr?: string): string {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('vi-VN');
+  }
+
+  formatBytes(bytes?: number): string {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   getStatusClass(status: string): string {
@@ -437,5 +325,126 @@ export class AdminDashboardComponent implements OnInit {
       'PLANNED': 'Sắp mở'
     };
     return map[status] || status;
+  }
+
+  getHealthClass(status?: string): string {
+    if (!status) return '';
+    return status.toLowerCase();
+  }
+
+  getHealthLabel(status?: string): string {
+    const map: Record<string, string> = {
+      'HEALTHY': 'Hoạt động tốt',
+      'WARNING': 'Cảnh báo',
+      'CRITICAL': 'Nguy hiểm'
+    };
+    return map[status || ''] || status || '';
+  }
+
+  getHealthTimestamp(): string {
+    return new Date().toLocaleString('vi-VN');
+  }
+
+  getCpuUsage(): number {
+    const metrics = this.systemMetrics();
+    if (!metrics?.cpu) return 0;
+    // Calculate CPU usage as load average / processors * 100
+    const loadAvg = metrics.cpu.systemLoadAverage;
+    const processors = metrics.cpu.availableProcessors;
+    return Math.min((loadAvg / processors) * 100, 100);
+  }
+
+  getGaugeColor(value: number): string {
+    if (value < 50) return '#22c55e';
+    if (value < 80) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  getGaugeDashArray(value: number): string {
+    const maxLength = 126; // Approximate arc length
+    const filled = (value / 100) * maxLength;
+    return `${filled} ${maxLength}`;
+  }
+
+  getServiceIcon(name: string): string {
+    const icons: Record<string, string> = {
+      'PostgreSQL': 'storage',
+      'Redis': 'flash_on',
+      'RabbitMQ': 'pets',
+      'MongoDB': 'eco',
+      'User Service': 'person',
+      'Course Service': 'menu_book',
+      'Gateway': 'hub',
+      'AI Service': 'smart_toy'
+    };
+    return icons[name] || 'settings';
+  }
+
+  getBackupTypeLabel(type: string): string {
+    const map: Record<string, string> = {
+      'FULL': 'Toàn bộ',
+      'POSTGRES': 'PostgreSQL',
+      'PostgreSQL': 'PostgreSQL',
+      'REDIS': 'Redis',
+      'Redis': 'Redis',
+      'MONGODB': 'MongoDB',
+      'MongoDB': 'MongoDB'
+    };
+    return map[type] || type;
+  }
+
+  getBackupTypeIcon(type: string): string {
+    const map: Record<string, string> = {
+      'FULL': 'cloud_done',
+      'POSTGRES': 'storage',
+      'PostgreSQL': 'storage',
+      'REDIS': 'flash_on',
+      'Redis': 'flash_on',
+      'MONGODB': 'eco',
+      'MongoDB': 'eco'
+    };
+    return map[type] || 'backup';
+  }
+
+  getBackupStatusLabel(status: string): string {
+    const map: Record<string, string> = {
+      'COMPLETED': 'Hoàn thành',
+      'IN_PROGRESS': 'Đang chạy',
+      'FAILED': 'Thất bại'
+    };
+    return map[status] || status;
+  }
+
+  getActivityIcon(action: string): string {
+    const icons: Record<string, string> = {
+      'ENROLLMENT': 'how_to_reg',
+      'QUIZ_SUBMIT': 'quiz',
+      'COURSE_CREATE': 'add_circle',
+      'USER_LOGIN': 'login',
+      'ASSIGNMENT_SUBMIT': 'upload_file',
+      'GRADE_UPDATE': 'grade'
+    };
+    return icons[action] || 'info';
+  }
+
+  getActivityLabel(action: string): string {
+    const labels: Record<string, string> = {
+      'ENROLLMENT': 'đã đăng ký',
+      'QUIZ_SUBMIT': 'đã nộp bài kiểm tra',
+      'COURSE_CREATE': 'đã tạo khóa học',
+      'USER_LOGIN': 'đã đăng nhập',
+      'ASSIGNMENT_SUBMIT': 'đã nộp bài tập',
+      'GRADE_UPDATE': 'đã cập nhật điểm'
+    };
+    return labels[action] || action;
+  }
+
+  getFrequencyLabel(frequency: string): string {
+    const map: Record<string, string> = {
+      'hourly': 'Mỗi giờ',
+      'daily': 'Hàng ngày',
+      'weekly': 'Hàng tuần'
+    };
+    return map[frequency] || frequency;
   }
 }

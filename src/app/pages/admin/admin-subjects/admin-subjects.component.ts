@@ -1,10 +1,11 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AdminService } from '../../../services/admin.service';
 import { Subject, CreateSubjectRequest } from '../../../services/course.service';
 import { MainLayoutComponent } from '../../../components/layout/main-layout/main-layout.component';
+import { NavigationService } from '../../../services/navigation.service';
 
 @Component({
   selector: 'app-admin-subjects',
@@ -15,7 +16,7 @@ import { MainLayoutComponent } from '../../../components/layout/main-layout/main
       <div class="admin-page">
         <div class="page-header">
           <div class="header-left">
-            <a routerLink="/admin/dashboard" class="back-link">← Quay lại</a>
+            <a [routerLink]="nav.getDashboardUrl()" class="back-link">← Quay lại</a>
             <h1>📚 Quản lý Môn học</h1>
           </div>
           <button class="btn-primary" (click)="openModal()">+ Thêm môn học</button>
@@ -425,6 +426,7 @@ import { MainLayoutComponent } from '../../../components/layout/main-layout/main
   `]
 })
 export class AdminSubjectsComponent implements OnInit {
+  nav = inject(NavigationService);
   subjects = signal<Subject[]>([]);
   filteredSubjects = signal<Subject[]>([]);
   loading = signal(true);

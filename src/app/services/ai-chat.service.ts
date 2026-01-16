@@ -39,6 +39,42 @@ export interface ChatRequest {
   context?: ChatContext;
 }
 
+// Backend API request format
+interface BackendChatRequest {
+  question: string;
+  user_id?: string;
+  session_id?: string;
+  course_id?: string;
+  subject_name?: string;
+  current_chapter?: string;
+  history?: { role: string; content: string }[];
+  load_history?: boolean;
+  // Agentic mode fields
+  agentic_mode?: boolean;
+  user_role?: string;
+  section_id?: number;
+  section_name?: string;
+  // Google OAuth token for creating real Google Meet
+  google_access_token?: string;
+}
+
+export interface AgenticChatResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    answer: string;
+    action: 'create_livestream' | 'create_lecture' | 'create_quiz' | 'create_assignment' | 'chat';
+    intent_detected: string;
+    action_data?: any;
+    action_result?: {
+      success: boolean;
+      message?: string;
+      data?: any;
+    };
+    suggestions?: string[];
+  };
+}
+
 export interface FunctionCallResult {
   functionName: string;
   success: boolean;
@@ -49,10 +85,15 @@ export interface FunctionCallResult {
 export interface ChatResponse {
   success: boolean;
   message: string;
-  content: string;
+  content?: string;
+  data?: {
+    answer: string;
+    suggestions?: string[];
+  };
   functionCalls?: FunctionCallResult[];
   suggestions?: string[];
-  timestamp: string;
+  timestamp?: string;
+  error?: any;
 }
 
 // Course Generation Response
@@ -90,13 +131,24 @@ export class AiChatService {
   private aiServiceUrl = environment.aiApiUrl;
   private authService = inject(AuthService);
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   /**
    * Gửi tin nhắn chat tới AI service
    */
   sendMessage(request: ChatRequest): Observable<ChatResponse> {
-    return this.http.post<ChatResponse>(this.apiUrl, request).pipe(
+    // Transform to backend format
+    const user = this.authService.getCurrentUserSync();
+    const backendRequest: BackendChatRequest = {
+      question: request.message,
+      user_id: user?.id?.toString() || 'anonymous',
+      course_id: request.context?.courseId?.toString(),
+      subject_name: request.context?.courseName || '',
+      history: request.history?.map(m => ({ role: m.role, content: m.content })),
+      load_history: false
+    };
+
+    return this.http.post<ChatResponse>(this.apiUrl, backendRequest).pipe(
       catchError(error => {
         console.error('AI Chat Error:', error);
         return of({
@@ -121,6 +173,58 @@ export class AiChatService {
   }
 
   /**
+   * Agentic Chat - AI tự detect intent và thực hiện action
+   * Dùng cho teacher khi muốn AI tự động tạo nội dung
+   */
+  sendAgenticMessage(
+    message: string,
+    userRole: string,
+    courseName: string,
+    courseId?: number,
+    sectionId?: number,
+    sectionName?: string,
+    history?: ChatMessage[],
+    googleAccessToken?: string
+  ): Observable<AgenticChatResponse> {
+    const user = this.authService.getCurrentUserSync();
+    const backendRequest: BackendChatRequest = {
+      question: message,
+      user_id: user?.id?.toString() || 'anonymous',
+      course_id: courseId?.toString(),
+      subject_name: courseName,
+      section_id: sectionId,
+      section_name: sectionName || '',
+      history: history?.map(m => ({ role: m.role, content: m.content })),
+      load_history: false,
+      agentic_mode: true,
+      user_role: userRole,
+      google_access_token: googleAccessToken
+    };
+
+    console.log('🤖 Agentic Chat Request:', {
+      ...backendRequest,
+      question: message.substring(0, 50) + '...',
+      has_google_token: !!googleAccessToken
+    });
+
+    return this.http.post<AgenticChatResponse>(this.apiUrl, backendRequest).pipe(
+      catchError(error => {
+        console.error('AI Agentic Chat Error:', error);
+        return of({
+          success: false,
+          message: error.message || 'Không thể kết nối với AI service',
+          data: {
+            answer: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
+            action: 'chat' as const,
+            intent_detected: 'error',
+            suggestions: []
+          }
+        });
+      })
+    );
+  }
+
+  /**
    * Gọi Python AI service để generate cấu trúc khóa học
    */
   generateCourse(subjectName: string, description?: string, numSections?: number): Observable<any> {
@@ -130,9 +234,9 @@ export class AiChatService {
       description: description || '',
       num_sections: numSections || 5
     };
-    
+
     console.log('📚 Generate Course Request:', body);
-    
+
     return this.http.post<any>(generateUrl, body).pipe(
       catchError(error => {
         console.error('AI Generate Course Error:', error);
@@ -144,7 +248,7 @@ export class AiChatService {
       })
     );
   }
-  
+
   /**
    * Gọi Python AI service để generate câu hỏi quiz
    */
@@ -156,9 +260,9 @@ export class AiChatService {
       num_questions: numQuestions || 10,
       difficulty: difficulty || 'MEDIUM'
     };
-    
+
     console.log('🎯 Generate Quiz Request:', body);
-    
+
     return this.http.post<any>(generateUrl, body).pipe(
       catchError(error => {
         console.error('AI Generate Quiz Error:', error);
@@ -170,7 +274,7 @@ export class AiChatService {
       })
     );
   }
-  
+
   /**
    * Gọi Python AI service để generate bài giảng
    */
@@ -181,7 +285,7 @@ export class AiChatService {
       subject_name: subjectName || lectureTitle,
       duration: duration || 45
     };
-    
+
     return this.http.post<any>(generateUrl, body).pipe(
       catchError(error => {
         console.error('AI Generate Lecture Error:', error);
@@ -193,7 +297,7 @@ export class AiChatService {
       })
     );
   }
-  
+
   /**
    * Gọi Python AI service để generate bài tập
    */
@@ -203,7 +307,7 @@ export class AiChatService {
       assignment_title: assignmentTitle,
       subject_name: subjectName || assignmentTitle
     };
-    
+
     return this.http.post<any>(generateUrl, body).pipe(
       catchError(error => {
         console.error('AI Generate Assignment Error:', error);
@@ -225,9 +329,9 @@ export class AiChatService {
       prompt: prompt,
       topic: topic || 'Bài tập'
     };
-    
+
     console.log('📝 Generate Assignment Instructions Request:', body);
-    
+
     return this.http.post<any>(generateUrl, body).pipe(
       catchError(error => {
         console.error('AI Generate Assignment Instructions Error:', error);
@@ -239,7 +343,36 @@ export class AiChatService {
       })
     );
   }
-  
+
+  /**
+   * Gọi Python AI service để generate thông tin buổi học online
+   */
+  generateLivestream(courseName: string, sectionName?: string, topic?: string, scheduledDate?: string, scheduledTime?: string, duration?: number, platform?: string): Observable<any> {
+    const generateUrl = `${this.aiServiceUrl}/generate-livestream`;
+    const body = {
+      course_name: courseName,
+      section_name: sectionName || '',
+      topic: topic || '',
+      scheduled_date: scheduledDate || '',
+      scheduled_time: scheduledTime || '',
+      duration: duration || 60,
+      platform: platform || 'google_meet'
+    };
+
+    console.log('🎥 Generate Livestream Request:', body);
+
+    return this.http.post<any>(generateUrl, body).pipe(
+      catchError(error => {
+        console.error('AI Generate Livestream Error:', error);
+        return of({
+          success: false,
+          message: error.message || 'Không thể tạo buổi học online',
+          data: null
+        });
+      })
+    );
+  }
+
   /**
    * Chat tự do với AI (có lưu lịch sử vào Redis)
    */
@@ -247,7 +380,7 @@ export class AiChatService {
     const chatUrl = `${this.aiServiceUrl}/chat`;
     const user = this.authService.getCurrentUserSync();
     const userId = user?.id?.toString() || 'anonymous';
-    
+
     const body = {
       question: question,
       user_id: userId,
@@ -255,9 +388,9 @@ export class AiChatService {
       session_id: sessionId || null,
       load_history: true  // Auto-load history from Redis
     };
-    
+
     console.log('💬 Chat Request:', { ...body, question: question.substring(0, 50) + '...' });
-    
+
     return this.http.post<any>(chatUrl, body).pipe(
       catchError(error => {
         console.error('AI Chat Error:', error);
@@ -277,14 +410,14 @@ export class AiChatService {
     const historyUrl = `${this.aiServiceUrl}/chat/history`;
     const user = this.authService.getCurrentUserSync();
     const userId = user?.id?.toString() || 'anonymous';
-    
+
     const body = {
       user_id: userId,
       course_id: courseId || null,
       session_id: sessionId || null,
       limit: limit
     };
-    
+
     return this.http.post<any>(historyUrl, body).pipe(
       catchError(error => {
         console.error('Get Chat History Error:', error);
@@ -304,13 +437,13 @@ export class AiChatService {
     const clearUrl = `${this.aiServiceUrl}/chat/history`;
     const user = this.authService.getCurrentUserSync();
     const effectiveUserId = userId || user?.id?.toString() || 'anonymous';
-    
+
     const body = {
       user_id: effectiveUserId,
       course_id: courseId || null,
       session_id: sessionId || null
     };
-    
+
     // Using HTTP DELETE with body requires special handling
     return this.http.request<any>('DELETE', clearUrl, { body }).pipe(
       catchError(error => {
@@ -330,7 +463,7 @@ export class AiChatService {
     const user = this.authService.getCurrentUserSync();
     const effectiveUserId = userId || user?.id?.toString() || 'anonymous';
     const sessionsUrl = `${this.aiServiceUrl}/chat/sessions/${effectiveUserId}`;
-    
+
     return this.http.get<any>(sessionsUrl).pipe(
       catchError(error => {
         console.error('Get Chat Sessions Error:', error);
@@ -352,7 +485,7 @@ export class AiChatService {
       request: request,
       current_course: currentCourse
     };
-    
+
     return this.http.post<any>(modifyUrl, body).pipe(
       catchError(error => {
         console.error('AI Modify Course Error:', error);
@@ -374,7 +507,7 @@ export class AiChatService {
       request: request,
       current_quiz: currentQuiz
     };
-    
+
     return this.http.post<any>(modifyUrl, body).pipe(
       catchError(error => {
         console.error('AI Modify Quiz Error:', error);
@@ -396,7 +529,7 @@ export class AiChatService {
       request: request,
       current_lecture: currentLecture
     };
-    
+
     return this.http.post<any>(modifyUrl, body).pipe(
       catchError(error => {
         console.error('AI Modify Lecture Error:', error);
@@ -418,7 +551,7 @@ export class AiChatService {
       request: request,
       current_assignment: currentAssignment
     };
-    
+
     return this.http.post<any>(modifyUrl, body).pipe(
       catchError(error => {
         console.error('AI Modify Assignment Error:', error);
@@ -438,7 +571,7 @@ export class AiChatService {
     const chatUrl = `${this.aiServiceUrl}/chat-with-file`;
     const user = this.authService.getCurrentUserSync();
     const userId = user?.id?.toString() || 'anonymous';
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('question', question);
@@ -446,7 +579,7 @@ export class AiChatService {
     if (sessionId) {
       formData.append('session_id', sessionId);
     }
-    
+
     return this.http.post<any>(chatUrl, formData).pipe(
       catchError(error => {
         console.error('AI Chat With File Error:', error);

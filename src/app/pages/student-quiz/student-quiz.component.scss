@@ -168,6 +168,54 @@
   }
 }
 
+// Quiz Availability Warning
+.quiz-availability-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+  
+  svg {
+    flex-shrink: 0;
+  }
+  
+  span {
+    font-weight: 500;
+  }
+  
+  &--not-open {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    color: #92400e;
+    
+    svg {
+      color: #f59e0b;
+    }
+  }
+  
+  &--closed {
+    background: #fee2e2;
+    border: 1px solid #ef4444;
+    color: #991b1b;
+    
+    svg {
+      color: #ef4444;
+    }
+  }
+  
+  &--info {
+    background: #dbeafe;
+    border: 1px solid #3b82f6;
+    color: #1e40af;
+    
+    svg {
+      color: #3b82f6;
+    }
+  }
+}
+
 // History section
 .history-section {
   margin-top: 2rem;

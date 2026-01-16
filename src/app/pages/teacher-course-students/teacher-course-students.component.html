@@ -1,0 +1,606 @@
+<div class="students-container">
+  <!-- Tabs -->
+  <div class="tabs-header">
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab() === 'list'"
+      (click)="activeTab.set('list')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      Sinh viên lớp học
+      <span class="tab-badge">{{ enrollments().length }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab() === 'all'"
+      (click)="switchToAllTab()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M22 21v-2a4 4 0 0 0-4-4h-2"></path>
+        <circle cx="17" cy="7" r="4"></circle>
+      </svg>
+      Tất cả sinh viên
+      <span class="tab-badge" *ngIf="allStudents().length > 0">{{ allStudents().length }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab() === 'create'"
+      (click)="activeTab.set('create')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="8.5" cy="7" r="4"></circle>
+        <line x1="20" y1="8" x2="20" y2="14"></line>
+        <line x1="23" y1="11" x2="17" y2="11"></line>
+      </svg>
+      Tạo sinh viên mới
+    </button>
+  </div>
+
+  <!-- Tab: Student List -->
+  <div *ngIf="activeTab() === 'list'" class="tab-content">
+    <!-- Header Actions -->
+    <div class="students-header">
+      <div class="search-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+        <input 
+          type="text" 
+          class="search-input"
+          placeholder="Tìm kiếm sinh viên..."
+          [(ngModel)]="searchQuery"
+          (input)="filterStudents()">
+      </div>
+      
+      <button class="btn btn--primary" (click)="showAddModal.set(true)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="8.5" cy="7" r="4"></circle>
+          <line x1="20" y1="8" x2="20" y2="14"></line>
+          <line x1="23" y1="11" x2="17" y2="11"></line>
+        </svg>
+        Ghi danh sinh viên
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="students-stats">
+      <div class="stat-card">
+        <span class="stat-value">{{ enrollments().length }}</span>
+        <span class="stat-label">Tổng sinh viên</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ getCountByStatus('ACTIVE') }}</span>
+        <span class="stat-label">Đang học</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ getCountByStatus('PASSED') }}</span>
+        <span class="stat-label">Hoàn thành</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ getCountByStatus('CANCELLED') }}</span>
+        <span class="stat-label">Đã hủy</span>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="loading()" class="loading-container">
+      <div class="spinner"></div>
+      <p>Đang tải danh sách sinh viên...</p>
+    </div>
+
+    <!-- Student List -->
+    <div *ngIf="!loading()" class="students-list">
+      <div *ngIf="filteredEnrollments().length === 0" class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <p *ngIf="searchQuery">Không tìm thấy sinh viên nào phù hợp</p>
+        <p *ngIf="!searchQuery">Chưa có sinh viên nào trong lớp</p>
+      </div>
+
+      <table class="students-table" *ngIf="filteredEnrollments().length > 0">
+        <thead>
+          <tr>
+            <th class="th-index">#</th>
+            <th class="th-code">MSSV</th>
+            <th class="th-name">Họ và tên</th>
+            <th class="th-last-access">Truy cập cuối</th>
+            <th class="th-status">Trạng thái</th>
+            <th class="th-actions">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let enrollment of filteredEnrollments(); let i = index"
+              [class.row--dropped]="enrollment.status === 'CANCELLED'">
+            <td>{{ i + 1 }}</td>
+            <td class="td-code">{{ enrollment.studentCode }}</td>
+            <td class="td-name">{{ enrollment.studentName }}</td>
+            <td class="td-last-access">
+              <button 
+                class="last-access-btn"
+                [class.has-access]="studentLastAccess()[enrollment.studentId]"
+                (click)="viewStudentActivity(enrollment)"
+                [title]="studentLastAccess()[enrollment.studentId] ? 'Click để xem chi tiết hoạt động' : 'Chưa truy cập'">
+                <svg *ngIf="studentLastAccess()[enrollment.studentId]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <svg *ngIf="!studentLastAccess()[enrollment.studentId]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                </svg>
+                <span>{{ formatLastAccess(studentLastAccess()[enrollment.studentId]) }}</span>
+              </button>
+            </td>
+            <td>
+              <app-badge [variant]="enrollmentService.getStatusVariant(enrollment.status)">
+                {{ enrollmentService.getStatusLabel(enrollment.status) }}
+              </app-badge>
+            </td>
+            <td class="td-actions">
+              <div class="action-buttons">
+                <button 
+                  class="action-btn action-btn--activity"
+                  title="Xem hoạt động"
+                  (click)="viewStudentActivity(enrollment)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </button>
+                <!-- Removed PENDING approval button - not used in current workflow -->
+                <button 
+                  *ngIf="enrollment.status === 'ACTIVE'"
+                  class="action-btn action-btn--complete"
+                  title="Đánh dấu hoàn thành"
+                  (click)="completeEnrollment(enrollment)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                </button>
+                <button 
+                  *ngIf="enrollment.status !== 'CANCELLED'"
+                  class="action-btn action-btn--drop"
+                  title="Xóa khỏi lớp"
+                  (click)="dropEnrollment(enrollment)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+                <button 
+                  *ngIf="enrollment.status === 'CANCELLED'"
+                  class="action-btn action-btn--restore"
+                  title="Khôi phục"
+                  (click)="restoreEnrollment(enrollment)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Create Student -->
+  <div *ngIf="activeTab() === 'create'" class="tab-content">
+    <div class="create-student-container">
+      <div class="create-student-header">
+        <h3>Tạo tài khoản sinh viên mới</h3>
+        <p class="create-student-desc">
+          Tạo tài khoản cho sinh viên mới. Sau khi tạo, sinh viên có thể đăng nhập và cập nhật thông tin cá nhân.
+        </p>
+      </div>
+
+      <form class="create-form" (ngSubmit)="createStudent()">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <span class="required">*</span> Username
+            </label>
+            <input 
+              type="text" 
+              class="form-input"
+              placeholder="vd: sv001, nguyenvana..."
+              [(ngModel)]="createForm.username"
+              name="username"
+              required
+              minlength="3">
+            <span class="form-hint">Tên đăng nhập, tối thiểu 3 ký tự</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <span class="required">*</span> Email
+            </label>
+            <input 
+              type="email" 
+              class="form-input"
+              placeholder="vd: sv001@uth.edu.vn"
+              [(ngModel)]="createForm.email"
+              name="email"
+              required>
+            <span class="form-hint">Email của sinh viên</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">
+              <span class="required">*</span> Mật khẩu
+            </label>
+            <div class="password-input-wrapper">
+              <input 
+                [type]="showPassword() ? 'text' : 'password'" 
+                class="form-input"
+                placeholder="Nhập mật khẩu..."
+                [(ngModel)]="createForm.password"
+                name="password"
+                required
+                minlength="6">
+              <button 
+                type="button" 
+                class="toggle-password"
+                (click)="showPassword.set(!showPassword())">
+                <svg *ngIf="!showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg *ngIf="showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+            <span class="form-hint">Mật khẩu tối thiểu 6 ký tự</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Họ và tên</label>
+            <input 
+              type="text" 
+              class="form-input"
+              placeholder="vd: Nguyễn Văn A"
+              [(ngModel)]="createForm.fullName"
+              name="fullName">
+            <span class="form-hint">Sinh viên có thể cập nhật sau</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Số điện thoại</label>
+            <input 
+              type="tel" 
+              class="form-input"
+              placeholder="vd: 0901234567"
+              [(ngModel)]="createForm.phoneNumber"
+              name="phoneNumber">
+            <span class="form-hint">Không bắt buộc</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Vai trò</label>
+            <div class="role-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+              </svg>
+              Sinh viên (STUDENT)
+            </div>
+            <span class="form-hint">Tài khoản được tạo sẽ có role Sinh viên</span>
+          </div>
+        </div>
+
+        <!-- Auto enroll option -->
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="autoEnroll"
+              name="autoEnroll">
+            <span class="checkmark"></span>
+            Tự động ghi danh vào khóa học này sau khi tạo
+          </label>
+        </div>
+
+        <!-- Alert messages -->
+        <div class="alert alert--error" *ngIf="createError()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          {{ createError() }}
+        </div>
+
+        <div class="alert alert--success" *ngIf="createSuccess()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          {{ createSuccess() }}
+        </div>
+
+        <!-- Created students list -->
+        <div class="created-students" *ngIf="createdStudents().length > 0">
+          <h4>Sinh viên đã tạo trong phiên này:</h4>
+          <div class="created-list">
+            <div class="created-item" *ngFor="let student of createdStudents()">
+              <div class="created-info">
+                <span class="created-name">{{ student.fullName || student.username }}</span>
+                <span class="created-email">{{ student.email }}</span>
+              </div>
+              <app-badge variant="success">Đã tạo</app-badge>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button 
+            type="button" 
+            class="btn btn--secondary" 
+            (click)="resetCreateForm()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            Đặt lại
+          </button>
+          <button 
+            type="submit" 
+            class="btn btn--primary"
+            [disabled]="creating() || !isCreateFormValid()">
+            <div *ngIf="creating()" class="spinner-small"></div>
+            <svg *ngIf="!creating()" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            {{ creating() ? 'Đang tạo...' : 'Tạo sinh viên' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tab: All Students -->
+  <div *ngIf="activeTab() === 'all'" class="tab-content">
+    <!-- Header with Filter -->
+    <div class="all-students-header">
+      <div class="search-filter-row">
+        <div class="search-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+          <input 
+            type="text" 
+            class="search-input"
+            placeholder="Tìm kiếm theo tên, username, email..."
+            [(ngModel)]="allStudentsSearchQuery"
+            (input)="filterAllStudents()">
+        </div>
+        
+        <div class="filter-buttons">
+          <button 
+            class="filter-btn" 
+            [class.active]="allStudentsFilter() === 'all'"
+            (click)="setAllStudentsFilter('all')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-4-4h-2"></path>
+              <circle cx="17" cy="7" r="4"></circle>
+            </svg>
+            Tất cả ({{ allStudents().length }})
+          </button>
+          <button 
+            class="filter-btn" 
+            [class.active]="allStudentsFilter() === 'enrolled'"
+            (click)="setAllStudentsFilter('enrolled')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Trong lớp ({{ getEnrolledCount() }})
+          </button>
+          <button 
+            class="filter-btn" 
+            [class.active]="allStudentsFilter() === 'not-enrolled'"
+            (click)="setAllStudentsFilter('not-enrolled')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            Ngoài lớp ({{ getNotEnrolledCount() }})
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="loadingAllStudents()" class="loading-container">
+      <div class="spinner"></div>
+      <p>Đang tải danh sách sinh viên...</p>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="allStudentsError()" class="alert alert--error">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
+      {{ allStudentsError() }}
+      <button class="btn btn--link" (click)="loadAllStudents()">Thử lại</button>
+    </div>
+
+    <!-- Students Table -->
+    <div class="table-wrapper" *ngIf="!loadingAllStudents() && !allStudentsError()">
+      <div *ngIf="filteredAllStudents().length === 0" class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M22 21v-2a4 4 0 0 0-4-4h-2"></path>
+          <circle cx="17" cy="7" r="4"></circle>
+        </svg>
+        <p *ngIf="allStudentsSearchQuery">Không tìm thấy sinh viên phù hợp</p>
+        <p *ngIf="!allStudentsSearchQuery && allStudentsFilter() === 'enrolled'">Chưa có sinh viên nào trong lớp</p>
+        <p *ngIf="!allStudentsSearchQuery && allStudentsFilter() === 'not-enrolled'">Tất cả sinh viên đã trong lớp</p>
+        <p *ngIf="!allStudentsSearchQuery && allStudentsFilter() === 'all'">Chưa có sinh viên nào trong hệ thống</p>
+      </div>
+
+      <table class="students-table all-students-table" *ngIf="filteredAllStudents().length > 0">
+        <thead>
+          <tr>
+            <th class="th-stt">STT</th>
+            <th class="th-code">Username</th>
+            <th class="th-name">Họ và tên</th>
+            <th class="th-email">Email</th>
+            <th class="th-status">Trạng thái</th>
+            <th class="th-actions">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let student of filteredAllStudents(); let i = index"
+              [class.row--enrolled]="isStudentEnrolled(student.id)">
+            <td class="td-stt">{{ i + 1 }}</td>
+            <td class="td-code">{{ student.username }}</td>
+            <td class="td-name">{{ student.fullName || '(Chưa cập nhật)' }}</td>
+            <td class="td-email">{{ student.email }}</td>
+            <td class="td-status">
+              <app-badge 
+                *ngIf="isStudentEnrolled(student.id)"
+                variant="success">
+                Trong lớp
+              </app-badge>
+              <app-badge 
+                *ngIf="!isStudentEnrolled(student.id)"
+                variant="secondary">
+                Ngoài lớp
+              </app-badge>
+            </td>
+            <td class="td-actions">
+              <button 
+                *ngIf="!isStudentEnrolled(student.id)"
+                class="action-btn action-btn--success" 
+                title="Ghi danh vào lớp"
+                [disabled]="enrollingStudentId() === student.id"
+                (click)="enrollStudentFromList(student)">
+                <div *ngIf="enrollingStudentId() === student.id" class="spinner-tiny"></div>
+                <svg *ngIf="enrollingStudentId() !== student.id" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="8.5" cy="7" r="4"></circle>
+                  <line x1="20" y1="8" x2="20" y2="14"></line>
+                  <line x1="23" y1="11" x2="17" y2="11"></line>
+                </svg>
+              </button>
+              <span 
+                *ngIf="isStudentEnrolled(student.id)" 
+                class="enrolled-text">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                Đã ghi danh
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Student Modal (for enrolling existing students) -->
+  <div class="modal-overlay" *ngIf="showAddModal()" (click)="closeAddModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Ghi danh sinh viên</h3>
+        <button class="modal-close" (click)="closeAddModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Mã sinh viên (ID)</label>
+          <input 
+            type="text" 
+            class="form-input"
+            placeholder="Nhập ID sinh viên..."
+            [(ngModel)]="newStudentId">
+          <span class="form-hint">Nhập ID của sinh viên đã có tài khoản để ghi danh vào lớp</span>
+        </div>
+
+        <div class="alert alert--info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          Để tạo tài khoản sinh viên mới, vui lòng sử dụng tab "Tạo sinh viên mới"
+        </div>
+
+        <div class="alert alert--error" *ngIf="addError()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          {{ addError() }}
+        </div>
+
+        <div class="alert alert--success" *ngIf="addSuccess()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          {{ addSuccess() }}
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn--secondary" (click)="closeAddModal()">Hủy</button>
+        <button 
+          class="btn btn--primary" 
+          [disabled]="!newStudentId || adding()"
+          (click)="addStudent()">
+          <div *ngIf="adding()" class="spinner-small"></div>
+          {{ adding() ? 'Đang xử lý...' : 'Ghi danh' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Activity Modal -->
+  <app-student-activity-modal
+    *ngIf="showActivityModal()"
+    [courseId]="courseId"
+    [studentId]="selectedStudentId()"
+    [studentName]="selectedStudentName()"
+    [studentCode]="selectedStudentCode()"
+    (close)="closeActivityModal()">
+  </app-student-activity-modal>
+</div>

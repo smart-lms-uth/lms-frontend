@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -19,6 +19,7 @@ import { MainLayoutComponent } from '../../components/layout/main-layout/main-la
 import { CardComponent } from '../../components/ui/card/card.component';
 import { BadgeComponent } from '../../components/ui/badge/badge.component';
 import { BreadcrumbComponent } from '../../components/ui/breadcrumb/breadcrumb.component';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-teacher-question-bank',
@@ -36,6 +37,7 @@ import { BreadcrumbComponent } from '../../components/ui/breadcrumb/breadcrumb.c
   styleUrl: './teacher-question-bank.scss'
 })
 export class TeacherQuestionBankComponent implements OnInit {
+  private nav = inject(NavigationService);
   
   // State
   loading = signal(false);
@@ -345,7 +347,7 @@ export class TeacherQuestionBankComponent implements OnInit {
 
   getBreadcrumbs() {
     return [
-      { label: 'Trang chủ', link: '/teacher/dashboard' },
+      { label: 'Trang chủ', link: this.nav.getDashboardUrl() },
       { label: 'Ngân hàng câu hỏi', link: '' }
     ];
   }

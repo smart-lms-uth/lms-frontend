@@ -26,12 +26,30 @@
         </div>
 
         <div class="intro-info">
+          <div class="info-item" *ngIf="openDate()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span>Thời gian mở: <strong>{{ openDate() | date:'HH:mm dd/MM/yyyy' }}</strong></span>
+          </div>
+          <div class="info-item" *ngIf="closeDate()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span>Thời gian đóng: <strong>{{ closeDate() | date:'HH:mm dd/MM/yyyy' }}</strong></span>
+          </div>
           <div class="info-item">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
-            <span>Thời gian: <strong>{{ module()?.estimatedDuration || 30 }} phút</strong></span>
+            <span>Thời gian làm bài: <strong>{{ timeLimit() || module()?.estimatedDuration || 30 }} phút</strong></span>
           </div>
           <div class="info-item">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -40,7 +58,7 @@
               <line x1="16" y1="13" x2="8" y2="13"></line>
               <line x1="16" y1="17" x2="8" y2="17"></line>
             </svg>
-            <span>Số lần làm bài: <strong>Không giới hạn</strong></span>
+            <span>Số lần làm bài: <strong>{{ maxAttempts() === -1 ? 'Không giới hạn' : maxAttempts() + ' lần' }}</strong></span>
           </div>
           <div class="info-item">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -50,6 +68,18 @@
             </svg>
             <span>Điểm đạt: <strong>{{ passingScore() }}%</strong></span>
           </div>
+        </div>
+
+        <!-- Quiz Availability Warning -->
+        <div *ngIf="!isQuizOpen()" class="quiz-availability-warning" 
+             [class.quiz-availability-warning--closed]="isQuizClosed()"
+             [class.quiz-availability-warning--not-open]="!isQuizClosed()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ quizAvailabilityMessage() }}</span>
         </div>
 
         <div class="intro-description" *ngIf="module()?.description">
@@ -63,20 +93,31 @@
             <li>Sau khi bắt đầu, thời gian sẽ được tính ngay lập tức</li>
             <li>Các câu trả lời sẽ được lưu tự động</li>
             <li>Khi hết thời gian, bài làm sẽ được nộp tự động</li>
-            <li>Không được thoát khỏi trang khi đang làm bài</li>
+            <li>Nếu thoát ra ngoài, bạn có thể quay lại tiếp tục làm bài với thời gian còn lại</li>
           </ul>
+        </div>
+
+        <!-- In-progress quiz warning -->
+        <div *ngIf="hasInProgressQuiz()" class="quiz-availability-warning quiz-availability-warning--info">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>Bạn có bài làm đang dở. Thời gian vẫn đang được tính từ lúc bắt đầu.</span>
         </div>
 
         <div class="intro-actions">
           <button 
             class="btn btn--primary btn--lg"
             (click)="startQuiz()"
-            [disabled]="starting()">
+            [disabled]="starting() || !isQuizOpen()">
             <span *ngIf="!starting()">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                <polygon *ngIf="!hasInProgressQuiz()" points="5 3 19 12 5 21 5 3"></polygon>
+                <polyline *ngIf="hasInProgressQuiz()" points="23 4 23 10 17 10"></polyline>
+                <path *ngIf="hasInProgressQuiz()" d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
               </svg>
-              Bắt đầu làm bài
+              {{ !isQuizOpen() ? (isQuizClosed() ? 'Quiz đã đóng' : 'Quiz chưa mở') : (hasInProgressQuiz() ? 'Tiếp tục làm bài' : 'Bắt đầu làm bài') }}
             </span>
             <span *ngIf="starting()" class="loading-text">
               <div class="spinner-sm"></div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectorRef, NgZone, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterLink, RouterModule } from '@angular/router';
@@ -7,6 +7,7 @@ import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import { AiChatService } from '../../services/ai-chat.service';
 import { CourseService } from '../../services/course.service';
 import { AuthService } from '../../services/auth.service';
+import { NavigationService } from '../../services/navigation.service';
 
 // Import child components
 import {
@@ -109,6 +110,7 @@ export class AiChatComponent implements OnInit {
   // Create new course modal
   showCreateCourseModal = false;
 
+  private nav = inject(NavigationService);
   backLink = '/dashboard';
 
   constructor(
@@ -122,12 +124,8 @@ export class AiChatComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    this.authService.currentUser$.subscribe(user => {
-      const role = user?.role?.toUpperCase();
-      if (role === 'TEACHER') this.backLink = '/teacher/dashboard';
-      else if (role === 'ADMIN') this.backLink = '/admin/dashboard';
-      else this.backLink = '/dashboard';
-    });
+    // Use NavigationService for dynamic dashboard link
+    this.backLink = this.nav.getDashboardUrl();
     this.loadChatSessions();
     this.checkQueryParams();
   }
@@ -975,6 +973,174 @@ Bạn có thể tiếp tục chỉnh sửa hoặc [quay về khóa học](/teach
     });
   }
 
+  /**
+   * Gọi API chỉnh sửa khóa học - merge kết quả với preview hiện tại
+   */
+  private callModifyCourseAPI(question: string): void {
+    if (!this.coursePreview) {
+      this.callCourseCreatorAPI(question);
+      return;
+    }
+
+    console.log('✏️ Modify course request:', question);
+
+    // Gửi course hiện tại để AI biết context
+    const currentCourse = {
+      name: this.coursePreview.name,
+      description: this.coursePreview.description,
+      sections: this.coursePreview.sections.map(s => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        modules: s.modules.map(m => ({
+          id: m.id,
+          title: m.title,
+          type: m.type,
+          description: m.description
+        }))
+      }))
+    };
+
+    this.aiChatService.modifyCourse(question, currentCourse).subscribe({
+      next: (response: any) => {
+        this.ngZone.run(() => {
+          this.messages = this.messages.filter(m => m.id !== 'typing');
+          const messageId = this.generateId();
+
+          if (response.success && response.data) {
+            const modifiedData = response.data;
+
+            // Merge kết quả: giữ lại ID của sections/modules có sẵn
+            const mergedSections = this.mergeCourseChanges(
+              this.coursePreview!.sections,
+              modifiedData.sections || []
+            );
+
+            // Cập nhật coursePreview
+            this.coursePreview = {
+              ...this.coursePreview!,
+              name: modifiedData.courseName || modifiedData.name || this.coursePreview!.name,
+              description: modifiedData.description || this.coursePreview!.description,
+              sections: mergedSections
+            };
+
+            // Cập nhật tab hiện tại
+            const activeTab = this.previewTabs.find(t => t.id === this.activeTabId);
+            if (activeTab && activeTab.type === 'course') {
+              activeTab.data = this.coursePreview;
+            }
+
+            const assistantMessage: ChatMessage = {
+              id: messageId,
+              role: 'assistant',
+              content: response.message || `✅ Đã cập nhật khóa học theo yêu cầu của bạn. Xem preview ở bên phải.`,
+              timestamp: new Date(),
+              previewData: this.coursePreview,
+              previewType: 'course'
+            } as any;
+
+            this.messages = [...this.messages, assistantMessage];
+          } else {
+            const errorMessage: ChatMessage = {
+              id: messageId,
+              role: 'assistant',
+              content: response.message || '❌ Không thể chỉnh sửa khóa học. Vui lòng thử lại.',
+              timestamp: new Date()
+            };
+            this.messages = [...this.messages, errorMessage];
+          }
+
+          this.isLoading = false;
+          this.scrollChatToBottom();
+          this.cdr.detectChanges();
+        });
+      },
+      error: (error) => this.handleAPIError(error)
+    });
+  }
+
+  /**
+   * Merge thay đổi từ AI với sections hiện tại, giữ lại ID
+   */
+  private mergeCourseChanges(existingSections: CoursePreviewSection[], newSections: any[]): CoursePreviewSection[] {
+    const result: CoursePreviewSection[] = [];
+
+    // Map existing sections by title for matching
+    const existingMap = new Map<string, CoursePreviewSection>();
+    existingSections.forEach(s => existingMap.set(s.title.toLowerCase(), s));
+
+    for (const newSection of newSections) {
+      const newTitle = (newSection.title || newSection.section_title || '').toLowerCase();
+      const existing = existingMap.get(newTitle);
+
+      if (existing) {
+        // Section đã có - update và giữ ID
+        const mergedModules = this.mergeModules(existing.modules, newSection.modules || []);
+        result.push({
+          ...existing,
+          title: newSection.title || existing.title,
+          description: newSection.description || existing.description,
+          modules: mergedModules
+        });
+        existingMap.delete(newTitle); // Mark as processed
+      } else {
+        // Section mới - không có ID
+        result.push({
+          title: newSection.title || newSection.section_title,
+          description: newSection.description || '',
+          collapsed: false,
+          modules: (newSection.modules || []).map((m: any) => ({
+            title: m.title || m.module_title,
+            type: this.mapModuleType(m.type || 'TEXT'),
+            description: m.description || ''
+          }))
+        });
+      }
+    }
+
+    // Thêm lại các section cũ không bị thay đổi
+    existingMap.forEach(section => result.push(section));
+
+    return result;
+  }
+
+  /**
+   * Merge modules, giữ lại ID của modules có sẵn
+   */
+  private mergeModules(existingModules: CoursePreviewModule[], newModules: any[]): CoursePreviewModule[] {
+    const result: CoursePreviewModule[] = [];
+    const existingMap = new Map<string, CoursePreviewModule>();
+    existingModules.forEach(m => existingMap.set(m.title.toLowerCase(), m));
+
+    for (const newModule of newModules) {
+      const newTitle = (newModule.title || newModule.module_title || '').toLowerCase();
+      const existing = existingMap.get(newTitle);
+
+      if (existing) {
+        // Module đã có - update và giữ ID
+        result.push({
+          ...existing,
+          title: newModule.title || existing.title,
+          type: this.mapModuleType(newModule.type || existing.type),
+          description: newModule.description || existing.description
+        });
+        existingMap.delete(newTitle);
+      } else {
+        // Module mới
+        result.push({
+          title: newModule.title || newModule.module_title,
+          type: this.mapModuleType(newModule.type || 'TEXT'),
+          description: newModule.description || ''
+        });
+      }
+    }
+
+    // Thêm lại các module cũ không bị thay đổi
+    existingMap.forEach(module => result.push(module));
+
+    return result;
+  }
+
   private callQuizGeneratorAPI(question: string): void {
     // Parse prompt để extract thông tin
     const parsed = this.parseQuizPrompt(question);
@@ -1090,92 +1256,6 @@ Bạn có thể tiếp tục chỉnh sửa hoặc [quay về khóa học](/teach
     });
   }
 
-  private callModifyCourseAPI(request: string): void {
-    // CRITICAL: Gửi ID để AI biết section/module nào đang sửa
-    const currentCourse = {
-      course_name: this.coursePreview?.name,
-      description: this.coursePreview?.description,
-      learning_objectives: this.coursePreview?.objectives,
-      sections: this.coursePreview?.sections?.map(s => ({
-        id: s.id, // ⚠️ QUAN TRỌNG: Giữ lại ID để update đúng
-        title: s.title,
-        description: s.description,
-        modules: s.modules?.map(m => ({
-          id: m.id, // ⚠️ QUAN TRỌNG: Giữ lại ID để update đúng
-          title: m.title,
-          type: m.type,
-          description: m.description,
-          assignmentInstructions: m.assignmentInstructions
-        }))
-      }))
-    };
-
-    this.aiChatService.modifyCourse(request, currentCourse).subscribe({
-      next: (response: any) => {
-        this.ngZone.run(() => {
-          this.messages = this.messages.filter(m => m.id !== 'typing');
-
-          const assistantMessage: ChatMessage = {
-            id: this.generateId(),
-            role: 'assistant',
-            content: response.message || 'Đã cập nhật khóa học theo yêu cầu.',
-            timestamp: new Date()
-          };
-
-          this.messages = [...this.messages, assistantMessage];
-          this.isLoading = false;
-
-          if (response.success && response.data) {
-            const courseData = response.data;
-            const oldSections = this.coursePreview?.sections || [];
-
-            // Parse sections từ response, cố gắng match ID với sections cũ
-            const newSections = (courseData.sections || []).map((s: any, sIndex: number) => {
-              // Tìm section cũ có cùng ID hoặc cùng vị trí
-              const matchedOldSection = s.id
-                ? oldSections.find(old => old.id === s.id)
-                : oldSections[sIndex];
-
-              const oldModules = matchedOldSection?.modules || [];
-
-              return {
-                id: s.id || matchedOldSection?.id, // Giữ ID nếu có
-                title: s.title || s.section_title,
-                description: s.description || '',
-                collapsed: false,
-                modules: (s.modules || s.lectures || []).map((m: any, mIndex: number) => {
-                  // Tìm module cũ có cùng ID hoặc cùng vị trí
-                  const matchedOldModule = m.id
-                    ? oldModules.find((old: any) => old.id === m.id)
-                    : oldModules[mIndex];
-
-                  return {
-                    id: m.id || matchedOldModule?.id, // Giữ ID nếu có
-                    title: m.title || m.lecture_title || m.module_title,
-                    type: this.mapModuleType(m.type || m.module_type || 'TEXT'),
-                    description: m.description || '',
-                    assignmentInstructions: m.instructions || m.assignmentInstructions || matchedOldModule?.assignmentInstructions || '',
-                    quizQuestions: m.questions || matchedOldModule?.quizQuestions
-                  };
-                })
-              };
-            });
-
-            this.coursePreview = {
-              name: courseData.course_name || this.coursePreview?.name || '',
-              description: courseData.description || this.coursePreview?.description || '',
-              objectives: courseData.learning_objectives || this.coursePreview?.objectives || [],
-              sections: newSections
-            };
-          }
-
-          this.scrollChatToBottom();
-          this.cdr.detectChanges();
-        });
-      },
-      error: (error) => this.handleAPIError(error)
-    });
-  }
 
   private callModifyQuizAPI(request: string): void {
     this.aiChatService.modifyQuiz(request, this.quizPreview).subscribe({

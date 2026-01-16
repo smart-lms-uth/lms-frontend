@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -6,6 +6,7 @@ import { UserService, UpdateProfileRequest, UserProfile } from '../../services/u
 import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, ButtonComponent, InputComponent, BadgeComponent, AvatarComponent } from '../../components/ui';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-profile',
@@ -26,6 +27,7 @@ import { CardComponent, ButtonComponent, InputComponent, BadgeComponent, AvatarC
   styleUrls: ['./profile.component.scss']
 })
 export class ProfileComponent implements OnInit {
+  private nav = inject(NavigationService);
   profileForm: FormGroup;
   
   // Signal-based state
@@ -150,10 +152,7 @@ export class ProfileComponent implements OnInit {
   }
 
   getBackLink(): string {
-    const role = this.user()?.role?.toUpperCase();
-    if (role === 'TEACHER') return '/teacher/dashboard';
-    if (role === 'ADMIN') return '/admin/dashboard';
-    return '/dashboard';
+    return this.nav.getDashboardUrl();
   }
 
   onSubmit(): void {

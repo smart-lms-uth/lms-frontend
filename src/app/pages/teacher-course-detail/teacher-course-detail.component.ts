@@ -13,6 +13,7 @@ import { TeacherCourseGradesComponent } from '../teacher-course-grades/teacher-c
 import { TeacherCourseStudentsComponent } from '../teacher-course-students/teacher-course-students.component';
 import { CopyContentDialogComponent } from '../../components/copy-content-dialog';
 import { LiveClassManagerComponent } from '../../components/live-class';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-teacher-course-detail',
@@ -37,6 +38,7 @@ import { LiveClassManagerComponent } from '../../components/live-class';
   styleUrls: ['./teacher-course-detail.component.scss']
 })
 export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
+  nav = inject(NavigationService); // public for template
   loading = signal(true);
   sectionsLoading = signal(false);
   course = signal<Course | null>(null);
@@ -327,6 +329,10 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     this.router.navigate(['/teacher/courses', this.courseId(), 'sections', section.id]);
   }
 
+  goToModuleDetail(sectionId: number, module: Module) {
+    this.router.navigate(['/teacher/courses', this.courseId(), 'sections', sectionId, 'modules', module.id]);
+  }
+
   onSectionClick(section: Section, event: MouseEvent) {
     // Only navigate if not in edit mode
     if (!this.editModeService.editMode()) {
@@ -499,7 +505,7 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
 
   getBreadcrumbs(): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
-      { label: 'Dashboard', link: '/teacher/dashboard' }
+      { label: this.nav.getDashboardLabel(), link: this.nav.getDashboardUrl() }
     ];
 
     if (this.course()) {
@@ -507,6 +513,30 @@ export class TeacherCourseDetailComponent implements OnInit, OnDestroy {
     }
 
     return items;
+  }
+
+  // Drag to chat widget
+  onSectionDragStart(event: DragEvent, section: Section) {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('application/json', JSON.stringify({
+        type: 'section',
+        id: section.id,
+        title: section.title
+      }));
+      event.dataTransfer.effectAllowed = 'copy';
+    }
+  }
+
+  onModuleDragStart(event: DragEvent, module: Module, section: Section) {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('application/json', JSON.stringify({
+        type: 'module',
+        id: module.id,
+        title: module.title,
+        sectionId: section.id
+      }));
+      event.dataTransfer.effectAllowed = 'copy';
+    }
   }
 
   logout() {

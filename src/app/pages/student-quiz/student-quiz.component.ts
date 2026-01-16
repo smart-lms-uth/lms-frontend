@@ -1,12 +1,13 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { QuizService, QuizQuestion, StartQuizResponse, SubmissionResult, AnswerRequest, SubmissionSummary } from '../../services/quiz.service';
+import { QuizService, QuizQuestion, StartQuizResponse, SubmissionResult, AnswerRequest, SubmissionSummary, SavedAnswer } from '../../services/quiz.service';
 import { CourseService, Course, Section, Module } from '../../services/course.service';
 import { ActivityService } from '../../services/activity.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
+import { NavigationService } from '../../services/navigation.service';
 
 interface UserAnswer {
   questionId: number;
@@ -30,6 +31,7 @@ interface UserAnswer {
   styleUrls: ['./student-quiz.component.scss']
 })
 export class StudentQuizComponent implements OnInit, OnDestroy {
+  private nav = inject(NavigationService);
   // Loading states
   loading = signal(true);
   starting = signal(false);
@@ -54,6 +56,17 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
   attemptNumber = signal<number>(1);
   startedAt = signal<Date | null>(null);
   passingScore = signal<number>(50); // default 50%
+  maxAttempts = signal<number>(-1); // -1 = unlimited
+  
+  // Quiz schedule
+  openDate = signal<Date | null>(null);
+  closeDate = signal<Date | null>(null);
+  isQuizOpen = signal(true);
+  isQuizClosed = signal(false);
+  quizAvailabilityMessage = signal<string>('');
+  
+  // In-progress quiz detection
+  hasInProgressQuiz = signal(false);
   
   // Timer
   remainingSeconds = signal<number>(0);
@@ -162,6 +175,39 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
           const module = section.modules?.find(m => m.id === this.moduleId());
           if (module) {
             this.module.set(module);
+            
+            // Parse quiz settings
+            const settings = (module as any).settings;
+            if (settings) {
+              try {
+                const parsed = typeof settings === 'string' ? JSON.parse(settings) : settings;
+                
+                // Parse time limit
+                if (parsed.durationMinutes) {
+                  this.timeLimit.set(parsed.durationMinutes);
+                }
+                
+                // Parse max attempts
+                if (parsed.maxAttempts !== undefined) {
+                  this.maxAttempts.set(parsed.maxAttempts);
+                }
+                
+                // Parse open date
+                if (parsed.openDate) {
+                  this.openDate.set(new Date(parsed.openDate));
+                }
+                
+                // Parse close date
+                if (parsed.closeDate) {
+                  this.closeDate.set(new Date(parsed.closeDate));
+                }
+                
+                // Check quiz availability
+                this.checkQuizAvailability();
+              } catch (e) {
+                console.error('Error parsing quiz settings:', e);
+              }
+            }
           }
         }
       }
@@ -183,6 +229,10 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
     try {
       const submissions = await this.quizService.getMySubmissions(this.moduleId()!).toPromise();
       this.submissions.set(submissions || []);
+      
+      // Check for IN_PROGRESS submission
+      const inProgress = submissions?.find(s => s.status === 'IN_PROGRESS');
+      this.hasInProgressQuiz.set(!!inProgress);
     } catch (error) {
       console.error('Error loading submissions:', error);
     }
@@ -190,7 +240,7 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
 
   updateBreadcrumb() {
     const items: BreadcrumbItem[] = [
-      { label: 'Dashboard', link: '/dashboard' }
+      { label: this.nav.getDashboardLabel(), link: this.nav.getDashboardUrl() }
     ];
     
     if (this.course()) {
@@ -232,15 +282,26 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
         this.attemptNumber.set(response.attemptNumber);
         this.startedAt.set(new Date(response.startedAt));
         
-        // Track quiz start activity
-        this.activityService.trackQuizStart(
-          this.moduleId()!.toString(),
-          this.module()?.title || 'Quiz',
-          this.courseId()!.toString()
-        );
+        // Track quiz start activity (chỉ track nếu không phải resume)
+        if (!response.isResumed) {
+          this.activityService.trackQuizStart(
+            this.moduleId()!.toString(),
+            this.module()?.title || 'Quiz',
+            this.courseId()!.toString()
+          );
+        }
         
-        // Initialize timer
-        this.remainingSeconds.set(response.timeLimit * 60);
+        // Initialize timer với remainingSeconds từ server (tính từ startedAt)
+        // Đảm bảo không còn thời gian nếu đã hết
+        const serverRemaining = response.remainingSeconds ?? (response.timeLimit * 60);
+        if (serverRemaining <= 0) {
+          // Bài đã hết giờ, tự động submit
+          alert('Bài kiểm tra đã hết giờ. Bài sẽ được tự động nộp.');
+          this.submissionId.set(response.submissionId);
+          await this.forceSubmitExpiredQuiz();
+          return;
+        }
+        this.remainingSeconds.set(serverRemaining);
         this.startTimer();
         
         // Initialize user answers
@@ -251,17 +312,69 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
             selectedOptionIds: []
           });
         });
+        
+        // Khôi phục câu trả lời đã lưu (nếu đang resume bài làm dở)
+        if (response.isResumed && response.savedAnswers && response.savedAnswers.length > 0) {
+          console.log('Resuming quiz with saved answers:', response.savedAnswers.length);
+          response.savedAnswers.forEach((saved: SavedAnswer) => {
+            const existing = answers.get(saved.questionId);
+            if (existing) {
+              existing.selectedOptionId = saved.selectedOptionId;
+              existing.selectedOptionIds = saved.selectedOptionIds || [];
+              existing.textAnswer = saved.textAnswer;
+            }
+          });
+        }
+        
         this.userAnswers.set(answers);
         
         // Switch to taking state
         this.quizState.set('taking');
         this.currentQuestionIndex.set(0);
+        
+        // Hiển thị thông báo nếu đang resume
+        if (response.isResumed) {
+          console.log(`Continuing quiz. Time remaining: ${Math.floor(serverRemaining / 60)}m ${serverRemaining % 60}s`);
+        }
       }
     } catch (error: any) {
       console.error('Error starting quiz:', error);
       alert(error?.error?.message || 'Không thể bắt đầu bài kiểm tra. Vui lòng thử lại.');
     } finally {
       this.starting.set(false);
+    }
+  }
+
+  // Force submit bài khi đã hết giờ (từ phía client khi phát hiện)
+  async forceSubmitExpiredQuiz() {
+    this.submitting.set(true);
+    try {
+      const answers: AnswerRequest[] = [];
+      this.userAnswers().forEach((answer, questionId) => {
+        answers.push({
+          questionId: questionId,
+          selectedOptionId: answer.selectedOptionId,
+          selectedOptionIds: answer.selectedOptionIds,
+          textAnswer: answer.textAnswer
+        });
+      });
+      
+      const result = await this.quizService.submitQuiz(
+        this.submissionId()!,
+        { answers }
+      ).toPromise();
+      
+      if (result) {
+        this.result.set(result);
+        this.quizState.set('result');
+      }
+    } catch (error) {
+      console.error('Error force submitting expired quiz:', error);
+      // Reload để server xử lý
+      await this.loadSubmissions();
+      this.quizState.set('intro');
+    } finally {
+      this.submitting.set(false);
     }
   }
 
@@ -458,6 +571,45 @@ export class StudentQuizComponent implements OnInit, OnDestroy {
       'sections', this.sectionId(),
       'modules', this.moduleId()
     ]);
+  }
+
+  // ============ QUIZ AVAILABILITY ============
+
+  checkQuizAvailability() {
+    const now = new Date();
+    const open = this.openDate();
+    const close = this.closeDate();
+    
+    // Check if quiz is not yet open
+    if (open && now < open) {
+      this.isQuizOpen.set(false);
+      this.isQuizClosed.set(false);
+      this.quizAvailabilityMessage.set(`Quiz sẽ mở vào ${this.formatDateVN(open)}`);
+      return;
+    }
+    
+    // Check if quiz is closed
+    if (close && now > close) {
+      this.isQuizOpen.set(false);
+      this.isQuizClosed.set(true);
+      this.quizAvailabilityMessage.set(`Quiz đã đóng vào ${this.formatDateVN(close)}`);
+      return;
+    }
+    
+    // Quiz is open
+    this.isQuizOpen.set(true);
+    this.isQuizClosed.set(false);
+    this.quizAvailabilityMessage.set('');
+  }
+
+  formatDateVN(date: Date): string {
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   // ============ HELPERS ============

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -6,6 +6,7 @@ import { AuthService, User } from '../../services/auth.service';
 import { CourseService, Semester, Subject, CourseStatus, CreateCourseRequest } from '../../services/course.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent } from '../../components/ui';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-teacher-course-form',
@@ -21,6 +22,7 @@ import { CardComponent } from '../../components/ui';
   styleUrls: ['./teacher-course-form.component.scss']
 })
 export class TeacherCourseFormComponent implements OnInit {
+  private nav = inject(NavigationService);
   loading = signal(true);
   submitting = signal(false);
   isEdit = signal(false);
@@ -137,7 +139,7 @@ export class TeacherCourseFormComponent implements OnInit {
         await this.courseService.createCourse(request).toPromise();
       }
 
-      this.router.navigate(['/teacher/dashboard']);
+      this.router.navigate([this.nav.getDashboardUrl()]);
     } catch (error: any) {
       console.error('Error saving course:', error);
       this.errorMessage.set(error?.error?.message || 'Không thể lưu lớp học phần. Vui lòng thử lại.');

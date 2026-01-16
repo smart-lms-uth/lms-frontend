@@ -259,6 +259,35 @@ export interface CreateModuleRequest {
   settings?: QuizSettings;
 }
 
+// ============ Livestream Module DTOs ============
+
+export interface CreateLivestreamRequest {
+  sectionId: number;
+  title: string;
+  description?: string;
+  scheduledAt: string; // ISO datetime string
+  duration?: number;
+  platform?: 'google_meet' | 'zoom' | 'teams';
+  existingMeetingUrl?: string;
+  googleAccessToken?: string;
+}
+
+export interface LivestreamModuleResponse {
+  id: number;
+  sectionId: number;
+  title: string;
+  description: string;
+  meetingUrl: string;
+  scheduledAt: string;
+  duration: number;
+  platform: string;
+  visible: boolean;
+  createdAt: string;
+  sectionTitle: string;
+  courseId: number;
+  courseName: string;
+}
+
 // ============ Copy Content DTOs ============
 
 /**
@@ -452,6 +481,18 @@ export class CourseService {
 
   createModule(sectionId: number, request: CreateModuleRequest): Observable<Module> {
     return this.http.post<Module>(`${COURSE_API}/v1/sections/${sectionId}/modules`, request);
+  }
+
+  /**
+   * Create livestream module with auto Google Meet creation
+   */
+  createLivestreamModule(request: CreateLivestreamRequest): Observable<LivestreamModuleResponse> {
+    return this.http.post<ApiResponse<LivestreamModuleResponse>>(
+      `${COURSE_API}/v1/livestream/modules`, 
+      request
+    ).pipe(
+      map(response => response.data)
+    );
   }
 
   updateModule(moduleId: number, request: Partial<CreateModuleRequest>): Observable<Module> {

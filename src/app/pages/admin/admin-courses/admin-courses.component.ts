@@ -1,10 +1,11 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AdminService } from '../../../services/admin.service';
 import { Course, CreateCourseRequest, Semester, Subject, CourseStatus } from '../../../services/course.service';
 import { MainLayoutComponent } from '../../../components/layout/main-layout/main-layout.component';
+import { NavigationService } from '../../../services/navigation.service';
 
 @Component({
   selector: 'app-admin-courses',
@@ -15,7 +16,7 @@ import { MainLayoutComponent } from '../../../components/layout/main-layout/main
       <div class="admin-page">
         <div class="page-header">
           <div class="header-left">
-            <a routerLink="/admin/dashboard" class="back-link">← Quay lại</a>
+            <a [routerLink]="nav.getDashboardUrl()" class="back-link">← Quay lại</a>
             <h1>🎓 Quản lý Khóa học</h1>
           </div>
           <button class="btn-primary" (click)="openModal()">+ Thêm khóa học</button>
@@ -401,6 +402,7 @@ import { MainLayoutComponent } from '../../../components/layout/main-layout/main
   `]
 })
 export class AdminCoursesComponent implements OnInit {
+  nav = inject(NavigationService);
   courses = signal<Course[]>([]);
   filteredCourses = signal<Course[]>([]);
   semesters = signal<Semester[]>([]);

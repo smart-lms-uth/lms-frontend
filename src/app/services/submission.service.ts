@@ -232,9 +232,14 @@ export class SubmissionService {
    * Mở file trong tab mới để xem (inline viewing)
    * Sử dụng cho PDF, images, text files
    * @param fileUrl URL của file
+   * @param originalFileName Tên file gốc để hiển thị
    */
-  viewFile(fileUrl: string): void {
-    const normalizedUrl = this.normalizeFileUrl(fileUrl);
+  viewFile(fileUrl: string, originalFileName?: string): void {
+    let normalizedUrl = this.normalizeFileUrl(fileUrl);
+    // Thêm tên file gốc vào query string nếu có
+    if (originalFileName) {
+      normalizedUrl += (normalizedUrl.includes('?') ? '&' : '?') + 'name=' + encodeURIComponent(originalFileName);
+    }
     window.open(normalizedUrl, '_blank');
   }
 
@@ -244,12 +249,16 @@ export class SubmissionService {
    * @param fileName Tên file để lưu
    */
   downloadSubmissionFile(fileUrl: string, fileName?: string): void {
-    const normalizedUrl = this.normalizeFileUrl(fileUrl);
+    let normalizedUrl = this.normalizeFileUrl(fileUrl);
     // Thêm ?download=true để bắt buộc download
-    const downloadUrl = normalizedUrl + (normalizedUrl.includes('?') ? '&' : '?') + 'download=true';
+    normalizedUrl += (normalizedUrl.includes('?') ? '&' : '?') + 'download=true';
+    // Thêm tên file gốc nếu có
+    if (fileName) {
+      normalizedUrl += '&name=' + encodeURIComponent(fileName);
+    }
 
     // Mở trong tab mới - browser sẽ tự động download do Content-Disposition: attachment
-    window.open(downloadUrl, '_blank');
+    window.open(normalizedUrl, '_blank');
   }
 
   /**

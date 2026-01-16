@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -7,6 +7,7 @@ import { CourseService, Course, Subject, Semester } from '../../services/course.
 import { EnrollmentService, Enrollment } from '../../services/enrollment.service';
 import { MainLayoutComponent } from '../../components/layout';
 import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } from '../../components/ui';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-course-registration',
@@ -24,6 +25,7 @@ import { CardComponent, BadgeComponent, BreadcrumbComponent, BreadcrumbItem } fr
   styleUrls: ['./course-registration.component.scss']
 })
 export class CourseRegistrationComponent implements OnInit {
+  private nav = inject(NavigationService);
   loading = signal(true);
   enrolling = signal(false);
   
@@ -69,7 +71,7 @@ export class CourseRegistrationComponent implements OnInit {
   // Computed: check if already enrolled in a course
   isEnrolled(courseId: number): boolean {
     return this.myEnrollments().some(e => 
-      e.courseId === courseId && (e.status === 'ENROLLED' || e.status === 'PENDING')
+      e.courseId === courseId && e.status === 'ACTIVE'
     );
   }
 
@@ -223,12 +225,12 @@ export class CourseRegistrationComponent implements OnInit {
   }
 
   getEnrollmentCount(): number {
-    return this.myEnrollments().filter(e => e.status === 'ENROLLED' || e.status === 'PENDING').length;
+    return this.myEnrollments().filter(e => e.status === 'ACTIVE').length;
   }
 
   getTotalCredits(): number {
     const enrolledCourseIds = this.myEnrollments()
-      .filter(e => e.status === 'ENROLLED' || e.status === 'PENDING')
+      .filter(e => e.status === 'ACTIVE')
       .map(e => e.courseId);
     
     return this.courses()
@@ -238,7 +240,7 @@ export class CourseRegistrationComponent implements OnInit {
 
   getBreadcrumbs(): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
-      { label: 'Trang chủ', link: '/dashboard' },
+      { label: 'Trang chủ', link: this.nav.getDashboardUrl() },
       { label: 'Đăng ký môn học' }
     ];
     return items;

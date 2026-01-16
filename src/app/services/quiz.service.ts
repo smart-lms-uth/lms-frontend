@@ -32,13 +32,24 @@ export interface QuizQuestion {
   orderIndex: number;
 }
 
+// Saved Answer Response (cho resume quiz)
+export interface SavedAnswer {
+  questionId: number;
+  selectedOptionId?: number;
+  selectedOptionIds?: number[];
+  textAnswer?: string;
+}
+
 // Start Quiz Response
 export interface StartQuizResponse {
   submissionId: number;
   startedAt: string;
   timeLimit: number; // minutes
+  remainingSeconds: number; // Thời gian còn lại tính từ server
   attemptNumber: number;
+  isResumed: boolean; // true nếu đây là bài làm dở đang tiếp tục
   questions: QuizQuestion[];
+  savedAnswers?: SavedAnswer[]; // Các câu trả lời đã lưu (nếu resume)
 }
 
 // Answer Request

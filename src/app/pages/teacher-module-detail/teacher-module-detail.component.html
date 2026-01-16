@@ -89,7 +89,8 @@
             <!-- View Mode -->
             <div *ngIf="!isEditingSettings()">
               <h1 class="module-title">{{ module()!.title }}</h1>
-              <p class="module-description">{{ module()!.description || 'Không có mô tả' }}</p>
+              <div class="module-description markdown-body" *ngIf="module()!.description" [innerHTML]="module()!.description | markdown"></div>
+              <p class="module-description text-muted" *ngIf="!module()!.description">Không có mô tả</p>
               
               <div class="module-meta">
                 <span class="meta-item" *ngIf="module()!.estimatedDuration">
@@ -216,6 +217,30 @@
               </svg>
               Mở tài liệu
             </a>
+          </div>
+        </div>
+      </app-card>
+
+      <!-- Livestream Info Section -->
+      <app-card *ngIf="module()!.type === 'LIVESTREAM'" variant="default" class="livestream-info-card">
+        <h3 class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+          Xem trước nội dung
+        </h3>
+        <div class="livestream-preview">
+          <!-- Meeting Link -->
+          <div class="livestream-meeting" *ngIf="module()!.resourceUrl">
+            <a [href]="module()!.resourceUrl" target="_blank" class="meeting-link btn btn--primary btn--lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              Tham gia buổi học
+            </a>
+            <p class="meeting-url">{{ module()!.resourceUrl }}</p>
           </div>
         </div>
       </app-card>

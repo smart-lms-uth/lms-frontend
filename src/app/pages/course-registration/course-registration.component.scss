@@ -213,6 +213,24 @@
   }
 }
 
+.subject-btn--active {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid var(--primary-500);
+  
+  .subject-name {
+    color: var(--primary-500);
+    font-weight: 600;
+  }
+  
+  .subject-code {
+    color: var(--primary-500);
+  }
+  
+  svg {
+    color: var(--primary-500);
+  }
+}
+
 .semester-name {
   color: var(--gray-800);
   font-size: 0.9375rem;
